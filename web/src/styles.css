@@ -119,6 +119,8 @@ button, input, select { font: inherit; color: inherit; }
 .seg button[aria-pressed="true"] { background: var(--teal-wash); color: var(--teal-deep); box-shadow: inset 0 0 0 1px var(--teal); }
 .seg .n { font-family: var(--mono); font-size: 13px; margin-right: 8px; color: var(--muted); }
 
+.seg .c { font-family: var(--mono); font-size: 13px; margin-left: 8px; color: var(--muted); }
+
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .field label, .field .label { font-size: 14px; font-weight: 500; display: flex; justify-content: space-between; gap: 8px; }
 .field output { font-family: var(--mono); color: var(--teal-deep); }
@@ -131,7 +133,10 @@ input[type="range"] { width: 100%; accent-color: var(--teal); height: 24px; marg
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
 /* ---------- surfaces */
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px 20px; }
+.panel {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px 20px;
+  box-shadow: 0 1px 2px rgba(15, 42, 46, 0.04), 0 12px 28px -20px rgba(15, 42, 46, 0.18);
+}
 .panel + .panel { margin-top: 16px; }
 .cols { display: grid; gap: 24px; align-items: start; }
 .stack { display: flex; flex-direction: column; gap: 16px; }
@@ -171,11 +176,19 @@ input[type="range"] { width: 100%; accent-color: var(--teal); height: 24px; marg
 .kv .s { font-size: 13px; color: var(--muted); margin-top: 2px; }
 
 /* ---------- queue */
-.qrow { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; border-top: 1px solid var(--line); padding: 12px 0; }
+/* Rows bleed to the panel edge, so the selected one reads as a full band. */
+.qrow {
+  display: grid; grid-template-columns: 28px minmax(0, 1fr) auto auto; gap: 12px; align-items: center;
+  border-top: 1px solid var(--line); margin: 0 -20px; padding: 12px 20px; cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.qrow.on { background: var(--teal-wash); }
+@media (hover: hover) and (pointer: fine) { .qrow:not(.on):hover { background: var(--bg); } }
 .qrow .rank { font-family: var(--mono); font-size: 13px; color: var(--muted); align-self: start; padding-top: 2px; }
 .qrow .id { font-family: var(--mono); font-size: 15px; font-weight: 500; }
 .qrow .route { font-size: 14px; color: var(--text-2); margin-top: 2px; overflow-wrap: anywhere; }
 .qrow .meta { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.qrow .meta + .meta { margin-top: 2px; }
 .qrow .chips { margin-top: 8px; }
 .qrow .risk { text-align: right; font-family: var(--mono); font-size: 18px; font-weight: 600; }
 .qrow .risk small { display: block; margin-top: 4px; }
@@ -186,6 +199,10 @@ input[type="range"] { width: 100%; accent-color: var(--teal); height: 24px; marg
 .map { display: block; width: 100%; height: auto; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); margin-top: 12px; }
 .map .land { fill: #d3e2e1; stroke: #fff; stroke-width: 0.6; }
 .map .route { fill: none; stroke-linecap: round; transition: opacity 200ms ease; }
+.map .route.flow { stroke: #fff; stroke-width: 1.4; stroke-dasharray: 2 12; animation: flow 900ms linear infinite; }
+.map .mark .pulse { fill: none; stroke-width: 1.5; pointer-events: none; transform-box: fill-box; transform-origin: center; animation: pulse 1800ms var(--ease-out) infinite; }
+@keyframes flow { from { stroke-dashoffset: 14; } to { stroke-dashoffset: 0; } }
+@keyframes pulse { from { transform: scale(1.2); opacity: 0.9; } to { transform: scale(3.2); opacity: 0; } }
 .map .port { fill: var(--surface); stroke: var(--text-2); stroke-width: 1.5; }
 .map .port-label { font: 12px var(--font); fill: var(--text-2); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
 .map .mark { cursor: pointer; outline-offset: 3px; }
@@ -212,6 +229,10 @@ input[type="range"] { width: 100%; accent-color: var(--teal); height: 24px; marg
 .matrix td { border-top: 1px solid var(--line); padding: 8px 12px 8px 0; vertical-align: middle; }
 .matrix td:last-child, .matrix th:last-child { padding-right: 0; text-align: right; }
 .matrix .name { font-weight: 500; }
+.matrix .tight { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.matrix .chip { white-space: normal; line-height: 1.3; }
+.matrix tr.on td:first-child { box-shadow: -20px 0 0 var(--teal-wash); }
+.matrix tr.on td:last-child { box-shadow: 20px 0 0 var(--teal-wash); }
 .matrix tr.on td { background: var(--teal-wash); }
 .stepnav { display: flex; justify-content: space-between; margin-top: 16px; }
 .shiphead { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; margin-bottom: 4px; }
@@ -260,5 +281,7 @@ details.banner summary:focus-visible { outline: 2px solid var(--teal); outline-o
 
 @media (prefers-reduced-motion: reduce) {
   .meter .fill, .map .mark .dot { transition: none; }
+  .map .route.flow, .map .mark .pulse { animation: none; }
+  .map .mark .pulse { display: none; }
   .btn, .nav, .btn:active, .nav:active { transition: background-color 150ms ease; transform: none; }
 }

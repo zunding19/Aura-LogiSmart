@@ -200,7 +200,7 @@ function Decide({ data, id, tried }: { data: Data; id: string; tried: string | u
       <table className="matrix">
         <thead>
           <tr>
-            {["Rank", "Action", "Fee", "Risk after", "Runway after", "What it wins", ""].map((head) => (
+            {["#", "Action", "Fee", "Risk after", "Runway after", "What it wins", ""].map((head) => (
               <th key={head} className="eyebrow" scope="col">{head}</th>
             ))}
           </tr>
@@ -228,11 +228,11 @@ function Decide({ data, id, tried }: { data: Data; id: string; tried: string | u
                 <td className="num">{backup ? "n/a" : usd(o.action_cost_usd)}</td>
                 {o.available ? (
                   <>
-                    <td className="num" style={{ color: moved ? riskColor(o.risk_after) : "var(--text-2)" }}>{pct(o.risk_after)}</td>
-                    <td className="num" style={{ color: o.covers_thermal_gap ? "var(--teal)" : (runway ?? 0) < 0 ? "var(--red)" : "var(--text-2)" }}>
+                    <td className="num" style={{ color: riskColor(o.risk_after), fontWeight: moved ? 600 : undefined }}>{pct(o.risk_after)}</td>
+                    <td className="tight" style={{ color: o.covers_thermal_gap ? "var(--teal)" : (runway ?? 0) < 0 ? "var(--red)" : "var(--text-2)" }}>
                       {hours(runway)}
                     </td>
-                    <td style={{ color: wins.win ? "var(--teal)" : "var(--text-2)", fontWeight: wins.win ? 500 : undefined }}>{wins.text}</td>
+                    <td className="tight" style={{ color: wins.win ? "var(--teal)" : "var(--text-2)", fontWeight: wins.win ? 500 : undefined }}>{wins.text}</td>
                     <td>
                       <button type="button" aria-pressed={tried === aid}
                         className={clsx("btn", (tried === aid || (!tried && o.rank === 1)) && "primary")}

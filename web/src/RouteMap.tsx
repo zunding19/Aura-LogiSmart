@@ -9,7 +9,7 @@ const WIDTH = 640;
 const RAD = Math.PI / 180;
 // Europe to East Asia, where most routes run. The view widens only when the
 // selected route has an end outside this window.
-const NEAR = { lon: [-15, 148], lat: [-12, 63] };
+const NEAR = { lon: [-15, 148], lat: [-12, 72] };
 const WIDE = { lon: [-130, 148], lat: [-45, 75] };
 // Ports that sit close together get their labels on different sides.
 const LABEL: Record<string, [number, number, "start" | "middle" | "end"]> = {
@@ -80,8 +80,12 @@ export default function RouteMap({ rows, coordinates, selected, onSelect }: {
         {drawn.routes.map(({ row, d }) => {
           const on = row.Shipment_ID === selected;
           return (
-            <path key={row.Shipment_ID} className="route" d={d} stroke={riskFill(row.p_failure)}
-              strokeWidth={on ? 3 : 1.2} opacity={on ? 1 : 0.5} />
+            <g key={row.Shipment_ID}>
+              <path className="route" d={d} stroke={riskFill(row.p_failure)}
+                strokeWidth={on ? 3 : 1.2} opacity={on ? 1 : 0.5} />
+              {/* Light dashes travel along the selected route, origin to destination. */}
+              {on && <path className="route flow" d={d} />}
+            </g>
           );
         })}
         {drawn.ports.map(({ name, xy }) => {
@@ -110,6 +114,9 @@ export default function RouteMap({ rows, coordinates, selected, onSelect }: {
               onFocus={() => setHover(id)} onBlur={() => setHover(null)}>
               {/* A larger invisible square makes the small mark easy to hit. */}
               <rect className="hit" x={mid[0] - 12} y={mid[1] - 12} width={24} height={24} />
+              {id === selected && (
+                <rect className="pulse" x={mid[0] - 6} y={mid[1] - 6} width={12} height={12} stroke={riskFill(row.p_failure)} />
+              )}
               <rect className="dot" x={mid[0] - 6} y={mid[1] - 6} width={12} height={12} fill={riskFill(row.p_failure)} />
             </g>
           );

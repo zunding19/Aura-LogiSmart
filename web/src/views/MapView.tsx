@@ -5,18 +5,20 @@ import { useStore } from "../store";
 import { Banner, Blocks, Chip, KV, Meter } from "../ui";
 
 function QueueRow({ row, rank, on, logged }: { row: Data; rank: number; on: boolean; logged: boolean }) {
-  const go = useStore((s) => s.go);
+  const { go, select } = useStore();
   const color = riskColor(row.p_failure);
   return (
-    <div className={clsx("qrow", on && "on")}>
+    // A click anywhere on the row selects it on the map; the button opens the response.
+    <div className={clsx("qrow", on && "on")} onClick={() => select(row.Shipment_ID)}>
       <div className="rank">{String(rank).padStart(2, "0")}</div>
       <div>
         <div className="id">{row.Shipment_ID}</div>
         <div className="route">
-          {row.Origin_Port} to {row.Destination_Port} · {row.Transport_Mode} · {row.Weather_Condition}
+          {row.Origin_Port} to {row.Destination_Port} by {String(row.Transport_Mode).toLowerCase()}
         </div>
+        <div className="meta">{row.Weather_Condition} · {row.Hospital_Urgency_Tier_Simulated}</div>
         <div className="meta">
-          {usd(row.Cargo_Value_USD_Simulated)} · {row.Hospital_Urgency_Tier_Simulated} ·{" "}
+          {usd(row.Cargo_Value_USD_Simulated)} ·{" "}
           {row.runway == null ? "powered container" : <span className={row.runway < 0 ? "red" : undefined}>runway {hours(row.runway)}</span>}
         </div>
         {logged && <div className="chips"><Chip tone="teal">Action logged</Chip></div>}
@@ -27,7 +29,7 @@ function QueueRow({ row, rank, on, logged }: { row: Data; rank: number; on: bool
         <small><Blocks share={row.p_failure} color={riskFill(row.p_failure)} /></small>
       </div>
       <button type="button" className={clsx("btn", on && "primary")} aria-label={`Respond to ${row.Shipment_ID}`}
-        onClick={() => go("respond", row.Shipment_ID, "Detect")}>
+        onClick={(e) => { e.stopPropagation(); go("respond", row.Shipment_ID, "Detect"); }}>
         Respond
       </button>
     </div>
@@ -70,9 +72,10 @@ function Brief({ id }: { id: string }) {
 }
 
 export default function MapView({ queue, coordinates }: { queue: Data; coordinates: Record<string, [number, number]> }) {
-  const { selected, select } = useStore();
+  const { selected, select, line } = useStore();
   const top: Data[] = queue.top;
   const stats = queue.stats;
+  const critical = top.filter((row) => row.p_failure >= 0.8).length;
   const logged = new Set((queue.alerts as Data[]).filter((a) => a.logged).map((a) => a.id));
 
   return (
@@ -85,14 +88,14 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
       {top.length === 0 ? (
         <Banner title="No alerts at this line">Lower the alert line in the sidebar to see more shipments.</Banner>
       ) : (
-        <div className="cols" style={{ gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr)" }}>
+        <div className="cols" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)" }}>
           <div>
             <section className="panel">
               <h2 className="h2">Routes at risk</h2>
               <p className="note">Squares mark shipments. Red is critical (80% and above), amber is high. Click a square to select it.</p>
               <RouteMap rows={top} coordinates={coordinates} selected={selected} onSelect={select} />
               <KV style={{ marginTop: 8 }} items={[
-                { label: `Expected loss, top ${stats.shown}`, value: usd(stats.expected_loss_top), sub: "if nothing is done" },
+                { label: "Expected loss", value: usd(stats.expected_loss_top), sub: `top ${stats.shown}, if nothing is done` },
                 { label: "Buffer short", value: `${stats.buffer_short} of ${stats.shown}`, sub: "ends before arrival", color: stats.buffer_short ? "var(--red)" : undefined },
                 { label: "SLA breaches", value: `${stats.sla_breaches} of ${stats.shown}`, sub: "carrier payment on hold", color: stats.sla_breaches ? "var(--red)" : undefined },
               ]} />
@@ -101,8 +104,21 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
             {selected && <div style={{ marginTop: 16 }}><Brief id={selected} /></div>}
           </div>
           <section className="panel">
-            <h2 className="h2">Triage queue</h2>
-            <p className="note" style={{ marginBottom: 12 }}>Most urgent first.</p>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <h2 className="h2" style={{ margin: 0 }}>Triage queue</h2>
+              <div className="chips">
+                {critical > 0 && <Chip tone="red">{critical} critical</Chip>}
+                {top.length - critical > 0 && <Chip tone="amber">{top.length - critical} high</Chip>}
+              </div>
+            </div>
+            <p className="note" style={{ margin: "4px 0 12px" }}>
+              The {top.length} most urgent of {queue.count} flagged at the {pct(line)} line. Click a row to see it on the map.
+            </p>
+            {line < 0.7 && (
+              <p className="fine" style={{ margin: "-4px 0 12px" }}>
+                Lowering the line adds lower-risk shipments further down. These ten stay on top because they are far above it.
+              </p>
+            )}
             {top.map((row, i) => (
               <QueueRow key={row.Shipment_ID} row={row} rank={i + 1} on={row.Shipment_ID === selected}
                 logged={logged.has(row.Shipment_ID)} />

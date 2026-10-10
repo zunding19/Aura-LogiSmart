@@ -22,7 +22,10 @@ export default function Inbox({ queue }: { queue: Data }) {
         Each alert says what went wrong and how long you have. Respond to see the cause and the action that pays.
       </p>
       <div style={{ marginBottom: 16 }}>
-        <Segmented label="Filter alerts" options={kinds} value={filter} onChange={setPick} />
+        <Segmented label="Filter alerts" options={kinds} value={filter} onChange={setPick}
+          render={(kind) => (
+            <>{kind}<span className="c">{kind === "All" ? alerts.length : alerts.filter((a) => a.kind === kind).length}</span></>
+          )} />
       </div>
       {shown.length === 0 ? (
         <Banner title="Nothing here">No alerts of this kind right now.</Banner>
@@ -42,7 +45,12 @@ export default function Inbox({ queue }: { queue: Data }) {
                   <div className="head">{alert.head}</div>
                   <div className="body">{alert.body}</div>
                 </div>
-                <div className="when">{Number(alert.hours_to_go).toFixed(1)} h to arrival</div>
+                <div className="when">
+                  {/* Long road trips read better in days. */}
+                  {Number(alert.hours_to_go) >= 48
+                    ? `${(Number(alert.hours_to_go) / 24).toFixed(1)} days to arrival`
+                    : `${Number(alert.hours_to_go).toFixed(1)} h to arrival`}
+                </div>
                 <button type="button" className={clsx("btn", index === 0 && !settled && "primary")}
                   onClick={() => go("respond", alert.id, "Detect")}>
                   {settled ? "Review" : "Respond"}

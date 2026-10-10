@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import NumberFlow from "@number-flow/react";
 import { Toaster, toast } from "sonner";
 import { pct, useApi } from "./lib";
 import { ALERT_LINES, VIEW_NAME, useStore, type View } from "./store";
@@ -26,11 +27,12 @@ export default function App() {
   }, [selected, data, select]);
 
   // Notification-driven: the top alert announces itself once, with a way in.
-  // It stays quiet during a response, so it never covers the result of an action.
+  // It shows only on the map and the inbox, so it never covers the result of an
+  // action, the simulator or the evidence figures.
   const first = open[0];
   const announced = useRef("");
   useEffect(() => {
-    if (view === "respond") {
+    if (view !== "map" && view !== "inbox") {
       toast.dismiss("top-alert");
       return;
     }
@@ -88,6 +90,13 @@ export default function App() {
               aria-valuetext={pct(line)}
               onChange={(e) => setLine(ALERT_LINES[Number(e.target.value)])} />
           </div>
+          {/* The count moves with the slider, so the effect of the line is visible at once. */}
+          {data && (
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
+              <NumberFlow className="mid" value={data.count} />
+              <span className="note">pharma shipments flagged</span>
+            </div>
+          )}
           {row && (
             <p className="note">
               <span className="num ink">{pct(row.precision)}</span> of alerts are real,{" "}
@@ -127,7 +136,13 @@ export default function App() {
         {data && view === "whatif" && meta.data && <WhatIf meta={meta.data} />}
         {data && view === "evidence" && <Evidence />}
       </main>
-      <Toaster position="bottom-right" richColors closeButton toastOptions={{ style: { fontFamily: "var(--font)" } }} />
+      <Toaster position="bottom-right" closeButton toastOptions={{
+        style: {
+          fontFamily: "var(--font)", background: "var(--surface)", color: "var(--text)",
+          border: "1px solid var(--line-strong)", boxShadow: "0 12px 32px -12px rgba(15, 42, 46, 0.28)",
+        },
+        actionButtonStyle: { background: "var(--teal)", color: "#fff", fontWeight: 600 },
+      }} />
     </div>
   );
 }
