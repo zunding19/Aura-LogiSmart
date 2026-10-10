@@ -1,4 +1,4 @@
-"""Backend data, model and scenario regression checks."""
+"""Disruption-v2 regressions; supplied labels and recorded values stay intact."""
 from dataclasses import replace
 from io import StringIO
 from pathlib import Path
@@ -9,11 +9,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.build_dataset import build
+from src.clean_dataset import clean
 from src.data_loader import (
     generate_demo_shipments,
     load_shipments,
@@ -22,9 +22,9 @@ from src.data_loader import (
 from src.explain import explain_prediction
 from src.features import extract_features
 from src.model import (
+    dataset_fingerprint,
     load_model,
     predict_failure_risk,
-    risk_level,
     save_model,
     train_model,
 )
@@ -33,623 +33,415 @@ from src.preprocessing import (
     clean_raw_shipment_data,
 )
 from src.prioritize import calculate_triage_queue
-from src.protocols import (
-    export_custody_audit,
-    record_custody_handshake,
-)
 from src.schema import (
+    CONTEXT_COLUMNS,
     FEATURE_SCHEMA_VERSION,
     MODEL_FEATURE_COLUMNS,
     MODEL_NUMERIC_COLUMNS,
-    OUTCOME_COLUMNS,
+    SHIPMENT_COLUMNS,
+    TARGET_COLUMN,
 )
-
 import src.notebook_tools as notebooks
 import src.recommendations as actions
 
-
-@pytest.fixture(scope="module")
-def full():
-    return load_shipments(
-        ROOT / "data/processed/aura_shipments.csv",
-        require_target=True,
-    )
+RAW_PATH = ROOT / "data/raw/global_supply_chain_risk_2026.csv"
 
 
 @pytest.fixture(scope="module")
-def balanced(full):
-    return pd.concat(
-        [
-            full[
-                full.Shipment_Failure.eq(label)
-            ].sample(
-                80,
-                random_state=42,
-            )
-            for label in (0, 1)
-        ],
-        ignore_index=True,
-    )
+def records():
+    return load_shipments(RAW_PATH, require_target=True)
 
 
 @pytest.fixture(scope="module")
-def bundle(balanced):
+def sample(records):
+    return records.sample(
+        320, random_state=42
+    ).reset_index(drop=True)
+
+
+@pytest.fixture(scope="module")
+def bundle(sample):
     return train_model(
-        balanced,
-        data_source="synthetic processed test sample",
+        sample,
+        data_source="supplied disruption records; authenticity unverified",
     )
 
 
-def test_builder_preserves_original_dataset():
-    original = pd.read_csv(
-        ROOT / "data/processed/aura_shipments.csv"
-    )
-
-    built = build(
-        pd.read_csv(
-            ROOT / "data/raw/global_supply_chain_pharma.csv"
-        ),
-        seed=42,
-    )
-
-    columns = [
-        column
-        for column in original
-        if column not in {
-            "Data_Source",
-            "Simulation_Seed",
-            "Dataset_Version",
-        }
-    ]
-
-    assert len(built) == 5000
-    assert len(columns) == 22
-    assert built.Shipment_Failure.sum() == 787
+def test_cleaning_preserves_recorded_values_and_labels(records):
+    result = clean(read_raw_shipments(RAW_PATH))
+    columns = SHIPMENT_COLUMNS + [TARGET_COLUMN]
+    expected = records.sort_values(
+        "Shipment_ID"
+    ).reset_index(drop=True)
 
     pd.testing.assert_frame_equal(
-        built[columns],
-        original[columns],
-        check_dtype=False,
-        rtol=1e-12,
-        atol=1e-10,
+        result[columns], expected[columns]
     )
-
-    assert built.Data_Source.str.contains(
-        "synthetic",
-        case=False,
+    assert len(result) == 5000
+    assert result[TARGET_COLUMN].sum() == 3063
+    assert result.Needs_Review.sum() == 975
+    assert set(result.Transport_Mode) == {"Air", "Sea", "Road", "Rail"}
+    assert (result.Weight_MT % 1 != 0).any()
+    assert result.iloc[0].Weight_MT == pytest.approx(197.42)
+    assert result.Label_Provenance.str.contains(
+        "unverified", case=False
     ).all()
 
-    assert built.Simulation_Seed.eq(
-        42
+
+def test_simulated_context_is_target_independent(records):
+    original = build(records, seed=42)
+    flipped = records.copy()
+    flipped[TARGET_COLUMN] = 1 - flipped[TARGET_COLUMN]
+    changed = build(flipped, seed=42)
+
+    pd.testing.assert_frame_equal(
+        original[SHIPMENT_COLUMNS + CONTEXT_COLUMNS],
+        changed[SHIPMENT_COLUMNS + CONTEXT_COLUMNS],
+    )
+    assert original[TARGET_COLUMN].sum() == 3063
+    assert changed[TARGET_COLUMN].sum() == 1937
+    assert original.Context_Source.str.contains(
+        "simulated", case=False
     ).all()
 
-    assert (
-        built.Dataset_Version.nunique()
-        == 1
+    pd.testing.assert_frame_equal(
+        extract_features(original),
+        extract_features(records),
     )
-
-
-def test_csv_text_missingness_and_provenance(tmp_path):
-    raw = read_raw_shipments(
-        StringIO(
-            "Shipment_ID,Place_of_Origin,Buffer_of_Package\n"
-            "0007,NA,\n"
-        )
-    )
-
-    assert raw.iloc[0].Shipment_ID == "0007"
-    assert raw.iloc[0].Place_of_Origin == "NA"
-    assert pd.isna(
-        raw.iloc[0].Buffer_of_Package
-    )
-
-    copied = (
-        tmp_path / "renamed_shipments.csv"
-    )
-    copied.write_bytes(
-        (
-            ROOT / "data/processed/aura_shipments.csv"
-        ).read_bytes()
-    )
-
-    assert read_raw_shipments(
-        copied
-    ).Data_Source.str.contains(
-        "synthetic|simulat",
-        case=False,
-    ).all()
-
-    with pytest.raises(
-        ShipmentValidationError,
-        match="Duplicate",
-    ):
-        read_raw_shipments(
-            StringIO(
-                "Shipment_ID,Shipment_ID\n"
-                "a,b\n"
-            )
-        )
-
-
-@pytest.mark.parametrize(
-    "field,value",
-    [
-        ("Handover_Count", 1.5),
-        ("Handover_Count", -1),
-        ("Handover_Count", np.nan),
-        ("Storage_standard", "+20°C"),
-    ],
-)
-def test_invalid_operational_inputs(full, field, value):
-    row = full.iloc[[0]].copy()
-    row[field] = value
-
-    with pytest.raises(
-        ShipmentValidationError,
-        match=field,
-    ):
-        clean_raw_shipment_data(row)
-
-
-def test_raw_mode_and_missing_outcomes(full):
-    raw = full.iloc[[0]].drop(
-        columns=[
-            "Planned_Transit_Hours",
-            "Handover_Count",
-            *OUTCOME_COLUMNS,
-        ]
-    )
-
-    raw["Hospital_Urgency_Tier"] = (
-        "Critical Emergency / Direct Patient Treatment"
-    )
-
-    cleaned = clean_raw_shipment_data(
-        raw,
-        require_processed=False,
-    )
-
-    assert (
-        cleaned.iloc[0].Hospital_Urgency_Tier
-        == "Critical Emergency"
-    )
-
-    with pytest.raises(
-        ShipmentValidationError,
-        match="Planned_Transit_Hours",
-    ):
-        clean_raw_shipment_data(raw)
-
-    with pytest.raises(
-        ShipmentValidationError,
-        match="Shipment_Failure",
-    ):
-        train_model(
-            full.drop(
-                columns=OUTCOME_COLUMNS
-            ),
-            data_source="synthetic",
-        )
-
-
-def test_eta_features_and_leakage_exclusions(full):
-    row = full.loc[
-        full.Shipment_ID.eq(
-            "SC-10000"
-        )
-    ]
-    features = extract_features(row)
-
-    assert list(
-        features
-    ) == MODEL_FEATURE_COLUMNS
-
-    assert len(
-        features.columns
-    ) == 19
-
-    excluded = OUTCOME_COLUMNS + [
-        "Shipment_ID",
-        "Cargo_Value_USD",
-        "Hospital_Urgency_Tier",
-    ]
-
     assert not set(
-        excluded
-    ).intersection(features)
+        CONTEXT_COLUMNS + [TARGET_COLUMN, "Shipment_ID", "Needs_Review"]
+    ).intersection(MODEL_FEATURE_COLUMNS)
+    assert len(MODEL_FEATURE_COLUMNS) == 13
+    assert "Lead_Time_Days" in MODEL_FEATURE_COLUMNS
 
-    assert features.index.equals(
-        row.index
+
+def test_loader_preserves_raw_text_blank_values_and_cursor():
+    stream = StringIO(
+        "Shipment_ID,Origin_Port,Weight_MT\n0007,NA,\n"
     )
+    stream.seek(5)
+    raw = read_raw_shipments(stream)
 
-    assert (
-        features.iloc[0].thermal_margin_hours
-        == pytest.approx(28.3)
-    )
-
-    assert (
-        features.iloc[0].deadline_margin_hours
-        == pytest.approx(35.28)
-    )
-
-    assert (
-        features.iloc[0].known_delay_hours
-        == pytest.approx(1.6)
-    )
+    assert stream.tell() == 5
+    assert raw.iloc[0].Shipment_ID == "0007"
+    assert raw.iloc[0].Origin_Port == "NA"
+    assert pd.isna(raw.iloc[0].Weight_MT)
+    assert "unverified" in raw.iloc[0].Data_Source
 
 
-def test_demo_sampling_is_repeatable_and_without_replacement():
-    first = generate_demo_shipments(
-        160, 42
-    )
-    second = generate_demo_shipments(
-        160, 42
-    )
+@pytest.mark.parametrize("csv", [
+    "<<<<<<< ours\nShipment_ID\na\n",
+    "Shipment_ID\na\n=======\nb\n",
+    "Shipment_ID\na\n>>>>>>> theirs\n",
+])
+def test_loader_rejects_conflict_markers_anywhere(csv):
+    with pytest.raises(
+        ShipmentValidationError, match="merge marker"
+    ):
+        read_raw_shipments(StringIO(csv))
 
-    pd.testing.assert_frame_equal(
-        first, second
-    )
 
+@pytest.mark.parametrize("csv", [
+    "Shipment_ID,Shipment_ID\na,b\n",
+    "Origin_Port,Place_of_Origin\na,b\n",
+    "Shipment_ID,Date\na\n",
+])
+def test_loader_rejects_duplicate_aliased_or_ragged_headers(csv):
+    with pytest.raises(ShipmentValidationError):
+        read_raw_shipments(StringIO(csv))
+
+
+@pytest.mark.parametrize("field,value", [
+    ("Weight_MT", True),
+    ("Weight_MT", np.inf),
+    ("Weight_MT", -1),
+    ("Fuel_Price_Index", np.nan),
+    ("Date", "2025-02-30"),
+    ("Date", "16/10/2025"),
+    ("Date", 123),
+    ("Transport_Mode", "Land"),
+    (TARGET_COLUMN, 2),
+    (TARGET_COLUMN, True),
+    (TARGET_COLUMN, np.nan),
+])
+def test_validation_rejects_invalid_recorded_inputs(
+    records, field, value
+):
+    row = records.iloc[[0]].copy()
+    row[field] = [value]
+
+    with pytest.raises(
+        ShipmentValidationError, match=field
+    ):
+        clean_raw_shipment_data(row, require_target=True)
+
+
+def test_missing_labels_are_not_generated(records):
+    inputs = records.drop(columns=TARGET_COLUMN)
+    assert TARGET_COLUMN not in clean_raw_shipment_data(inputs)
+
+    with pytest.raises(
+        ShipmentValidationError, match=TARGET_COLUMN
+    ):
+        train_model(inputs)
+
+    with pytest.raises(ValueError, match=TARGET_COLUMN):
+        train_model(records, target="Shipment_Failure")
+
+
+def test_sampling_preserves_supplied_labels_and_is_repeatable(
+    records, monkeypatch
+):
+    import src.data_loader as loader
+
+    monkeypatch.setattr(loader, "DEMO_PATH", RAW_PATH)
+    first = generate_demo_shipments(320, 42)
+    second = generate_demo_shipments(320, 42)
+
+    pd.testing.assert_frame_equal(first, second)
     assert first.Shipment_ID.is_unique
 
-    assert first.Data_Source.str.contains(
-        "synthetic|simulat",
-        case=False,
-    ).all()
+    expected = records.set_index("Shipment_ID")[TARGET_COLUMN]
+    assert first[TARGET_COLUMN].tolist() == expected.loc[
+        first.Shipment_ID
+    ].tolist()
 
-    with pytest.raises(
-        ValueError,
-        match="without replacement",
-    ):
+    with pytest.raises(ValueError, match="without replacement"):
         generate_demo_shipments(5001)
 
 
-@pytest.mark.parametrize(
-    "probability,band",
-    [
-        (0, "Low"),
-        (.3, "Low"),
-        (.6, "Medium"),
-        (.8, "High"),
-        (1, "Critical"),
-    ],
-)
-def test_risk_band_boundaries(probability, band):
-    assert risk_level(
-        probability
-    ) == band
-
-
-def test_training_only_scaler_and_holdout(balanced, bundle):
-    train = bundle.metadata[
-        "train_positions"
-    ]
-    test = bundle.metadata[
-        "test_positions"
-    ]
+def test_holdout_and_cv_keep_complete_dates_in_order(sample, bundle):
+    train = bundle.metadata["train_positions"]
+    test = bundle.metadata["test_positions"]
 
     assert set(train).isdisjoint(test)
-    assert (
-        len(train) + len(test)
-        == len(balanced)
+    assert len(train) + len(test) == len(sample)
+    assert sample.iloc[train].Date.max() < sample.iloc[test].Date.min()
+    assert set(sample.iloc[train].Date).isdisjoint(
+        sample.iloc[test].Date
     )
 
-    features = extract_features(
-        balanced
-    )
+    for fold in bundle.metadata["cv_splits"]:
+        past = fold["train_positions"]
+        future = fold["validation_positions"]
 
+        assert set(past + future).issubset(train)
+        assert set(past).isdisjoint(future)
+        assert sample.iloc[past].Date.max() < sample.iloc[future].Date.min()
+        assert set(sample.iloc[past].Date).isdisjoint(
+            sample.iloc[future].Date
+        )
+
+    features = extract_features(sample).iloc[train][
+        MODEL_NUMERIC_COLUMNS
+    ]
     scaler = (
-        bundle.pipeline
-        .named_steps["preprocessor"]
+        bundle.pipeline.named_steps["preprocessor"]
         .named_transformers_["numeric"]
         .named_steps["scaler"]
     )
 
     np.testing.assert_allclose(
-        scaler.mean_,
-        features.iloc[train][
-            MODEL_NUMERIC_COLUMNS
-        ].mean(),
+        scaler.mean_, features.mean(), atol=1e-12
     )
 
     assert (
         bundle.metadata["feature_schema_version"]
         == FEATURE_SCHEMA_VERSION
     )
-    assert bundle.metadata["is_synthetic"]
-
-    assert (
-        bundle.metrics["n_test"]
-        == len(test)
-    )
-    assert sum(
-        map(
-            sum,
-            bundle.metrics["confusion_matrix"],
-        )
-    ) == len(test)
+    assert bundle.metadata["artifact_format_version"] == 3
+    assert bundle.metadata["planned_lead_time_confirmed"]
+    assert bundle.metadata["label_provenance"] == "unverified"
+    assert not bundle.metadata["calibrated"]
+    assert bundle.metadata["is_synthetic"] is None
 
 
-def test_repeated_shipments_stay_in_one_partition(balanced):
-    groups = pd.concat(
-        [
-            balanced.iloc[:40],
-            balanced.iloc[80:120],
-        ],
-        ignore_index=True,
-    )
-
+def test_duplicate_ids_and_insufficient_dates_do_not_fall_back(sample):
     repeated = pd.concat(
-        [groups, groups],
+        [sample, sample.iloc[[0]]],
         ignore_index=True,
     )
+    with pytest.raises(ValueError, match="Repeated Shipment_ID"):
+        train_model(repeated)
 
-    model = train_model(
-        repeated,
-        data_source="synthetic grouped sample",
-    )
-
-    train = model.metadata[
-        "train_positions"
-    ]
-    test = model.metadata[
-        "test_positions"
-    ]
-
-    assert set(
-        repeated.iloc[train].Shipment_ID
-    ).isdisjoint(
-        repeated.iloc[test].Shipment_ID
-    )
-
-    assert (
-        model.metadata["cv_method"]
-        == "StratifiedGroupKFold"
-    )
+    collapsed = sample.copy()
+    collapsed["Date"] = pd.Timestamp("2025-01-01")
+    with pytest.raises(ValueError, match="distinct record dates"):
+        train_model(collapsed)
 
 
-def test_model_roundtrip_and_stale_schema_rejection(
-    tmp_path,
-    balanced,
-    bundle,
+def test_prediction_alias_and_artifact_roundtrip(
+    sample, bundle, tmp_path
 ):
-    path = (
-        tmp_path / "trusted_model.pkl"
-    )
+    path = tmp_path / "trusted_disruption.pkl"
     save_model(bundle, path)
 
-    features = extract_features(
-        balanced.iloc[:5]
+    features = extract_features(sample.iloc[:10])
+    predicted = predict_failure_risk(
+        features, load_model(path)
     )
 
     pd.testing.assert_frame_equal(
-        predict_failure_risk(
-            features, bundle
+        predicted,
+        predict_failure_risk(features, bundle),
+    )
+    np.testing.assert_array_equal(
+        predicted.p_disruption, predicted.p_failure
+    )
+    assert predicted.p_disruption.between(0, 1).all()
+    assert predicted.target_column.eq(TARGET_COLUMN).all()
+    assert predicted.index.equals(features.index)
+
+
+@pytest.mark.parametrize("key,value", [
+    ("feature_schema_version", "aura-eta-v1"),
+    ("artifact_format_version", 2),
+    ("target_column", "Shipment_Failure"),
+    ("sklearn_version", "0.0"),
+])
+def test_stale_artifact_contracts_are_rejected(
+    bundle, tmp_path, key, value
+):
+    path = tmp_path / "stale.pkl"
+    joblib.dump(
+        replace(
+            bundle,
+            metadata={**bundle.metadata, key: value},
         ),
-        predict_failure_risk(
-            features, load_model(path)
-        ),
+        path,
     )
 
-    stale = replace(
-        bundle,
-        metadata={
-            **bundle.metadata,
-            "feature_schema_version": "aura-old",
-        },
-    )
-
-    joblib.dump(stale, path)
-
-    with pytest.raises(
-        ValueError,
-        match="Retrain",
-    ):
+    with pytest.raises(ValueError, match="retrain"):
         load_model(path)
 
 
-def test_triage_ranks_financial_stakes(full):
-    rows = pd.concat(
-        [full.iloc[[0]]] * 2,
-        ignore_index=True,
+def test_old_dictionary_and_invalid_pickle_are_rejected(tmp_path):
+    path = tmp_path / "obsolete.pkl"
+    joblib.dump(
+        {"model": "old cold-chain notebook format"},
+        path,
     )
+    with pytest.raises(ValueError, match="retrain"):
+        load_model(path)
 
-    rows["p_failure"] = .5
-    rows["Cargo_Value_USD"] = [
-        100, 1000
-    ]
-
-    queue = calculate_triage_queue(
-        rows
-    )
-
-    assert queue.index.tolist() == [
-        1, 0
-    ]
-    assert (
-        queue.expected_loss_usd.tolist()
-        == [500, 50]
-    )
+    path.write_bytes(b"not a pickle")
+    with pytest.raises(ValueError, match="retrain"):
+        load_model(path)
 
 
-def test_monitor_diversion_and_adverse_scenario(
-    full,
-    bundle,
-    monkeypatch,
+def test_triage_is_stable_probability_order_without_financial_ranking(
+    records,
 ):
-    row = full.iloc[0].to_dict()
+    rows = records.iloc[:3].copy()
+    rows["p_disruption"] = [.4, .9, .9]
+    rows["Cargo_Value_USD_Simulated"] = [1e12, 0, 1e9]
 
-    for action, expected in [
-        ("monitor", 0),
-        ("emergency_stock_diversion", -750),
-    ]:
-        result = actions.simulate_intervention(
-            row,
-            action,
-            bundle,
-        )
+    queue = calculate_triage_queue(rows)
 
-        assert (
-            result["after_probability"]
-            == result["before_probability"]
-        )
-        assert result["changed_fields"] == {}
-        assert (
-            result["estimated_net_benefit_usd"]
-            == expected
-        )
+    assert queue.index.tolist() == [1, 2, 0]
+    assert queue.risk_score.tolist() == [.9, .9, .4]
+    assert "expected_loss_usd" not in queue
+    assert queue.p_failure.equals(queue.p_disruption)
+
+    rows["p_failure"] = [.5, .9, .9]
+    with pytest.raises(
+        ShipmentValidationError, match="disagrees"
+    ):
+        calculate_triage_queue(rows)
+
+
+def test_scenarios_keep_adverse_probability_changes_and_unknown_costs(
+    records, bundle, monkeypatch
+):
+    row = records.iloc[0].to_dict()
+    row["Carrier_Reliability_Score"] = .3
 
     monkeypatch.setattr(
         actions,
         "predict_failure_risk",
         lambda features, model: pd.DataFrame(
             {
-                "p_failure": np.where(
-                    features.Buffer_of_Package.gt(
-                        row["Buffer_of_Package"]
-                    ),
-                    .9,
-                    .2,
-                )
+                "p_disruption": features.Carrier_Reliability_Score
             },
             index=features.index,
         ),
     )
 
     result = actions.simulate_intervention(
-        row,
-        "refrigerant_refresh",
-        bundle,
+        row, "carrier_review", bundle
     )
 
-    assert (
-        result["after_probability"]
-        > result["before_probability"]
+    assert result["before_probability"] == .3
+    assert result["after_probability"] == .95
+    assert result["probability_change"] == pytest.approx(-.65)
+    assert result["estimated_net_benefit_usd"] is None
+    assert result["estimated_loss_reduction_usd"] is None
+    assert result["action_cost_usd"] is None
+    assert set(result["changed_fields"]) == {
+        "Carrier_Reliability_Score"
+    }
+
+    monitor = actions.simulate_intervention(
+        row, "monitor", bundle
     )
-    assert (
-        result["estimated_net_benefit_usd"]
-        < 0
-    )
+    assert monitor["probability_change"] == 0
+    assert monitor["changed_fields"] == {}
+
+    sla = actions.check_sla_status(.99, buffer_hours=.1)
+    assert not sla["available"]
+    assert not sla["breach_warning"]
+    assert not sla["simulated_escrow_locked"]
 
 
-def test_explanation_reports_actual_signed_sensitivity(
-    full,
-    bundle,
+def test_explanations_have_three_finite_signed_references(
+    records, bundle
 ):
-    result = explain_prediction(
-        full.iloc[0],
-        model=bundle,
+    row = records.iloc[0].to_dict()
+    row.update(
+        Weather_Condition="Storm",
+        Carrier_Reliability_Score=.4,
+        Geopolitical_Risk_Score=8,
     )
 
-    assert (
-        "model sensitivity"
-        in result["method"]
-    )
-    assert (
-        1 <= len(result["drivers"]) <= 3
+    result = explain_prediction(row, bundle)
+
+    assert result["target"] == TARGET_COLUMN
+    assert result["category"] == "Combined exposure"
+    assert len(result["drivers"]) == 3
+    assert "model sensitivity" in result["method"]
+
+    contributions = [
+        abs(driver["contribution"])
+        for driver in result["drivers"]
+    ]
+    assert contributions == sorted(
+        contributions, reverse=True
     )
 
     for driver in result["drivers"]:
-        assert np.isfinite(
-            driver["contribution"]
-        )
-        assert (
-            driver["contribution"]
-            == pytest.approx(
-                result["baseline_probability"]
-                - driver["counterfactual_probability"]
-            )
+        assert np.isfinite(driver["contribution"])
+        assert driver["contribution"] == pytest.approx(
+            result["baseline_probability"]
+            - driver["counterfactual_probability"]
         )
 
 
-def test_two_handler_custody_requires_confirmation():
-    records = []
-
-    record_custody_handshake(
-        "SC-test",
-        "Alice",
-        "Bob",
-        3,
-        "Hub",
-        True,
-        records,
-    )
-
-    assert len(records) == 1
-
-    assert (
-        '"shipment_id": "SC-test"'
-        in export_custody_audit(records)
-    )
-
-    for receiver, confirmed in [
-        ("ALICE", True),
-        ("Bob", False),
-    ]:
-        with pytest.raises(
-            ShipmentValidationError
-        ):
-            record_custody_handshake(
-                "SC-test",
-                "Alice",
-                receiver,
-                3,
-                "Hub",
-                confirmed,
-                records,
-            )
-
-    assert len(records) == 1
-
-
-def test_notebook_full_data_raw_inspection_and_stale_artifact(
-    full,
-    balanced,
-    bundle,
-    tmp_path,
-    monkeypatch,
+def test_fingerprint_ignores_simulated_context_and_helper_skips_old_model(
+    sample, bundle, tmp_path, monkeypatch
 ):
-    raw, source = notebooks.notebook_data()
-
-    assert len(raw) == 5000
-    assert any(
-        word in source.casefold()
-        for word in (
-            "synthetic", "simulat"
-        )
+    contextual = sample.assign(
+        Cargo_Value_USD_Simulated=1e12,
+        Remaining_Buffer_Hours_Simulated=0,
     )
-
-    raw, source = notebooks.notebook_data(
-        "data/raw/global_supply_chain_pharma.csv"
-    )
-
     assert (
-        "Planned_Transit_Hours"
-        not in raw
-    )
-    assert len(raw) == 5000
-
-    monkeypatch.setattr(
-        notebooks,
-        "ROOT",
-        tmp_path,
+        dataset_fingerprint(contextual)
+        == dataset_fingerprint(sample)
     )
 
-    (tmp_path / "models").mkdir()
+    path = tmp_path / "old.pkl"
+    joblib.dump({"model": "obsolete"}, path)
 
-    stale = replace(
-        bundle,
-        metadata={
-            **bundle.metadata,
-            "feature_schema_version": "aura-old",
-        },
-    )
-
-    joblib.dump(
-        stale,
-        tmp_path / "models/aura_demo_model.pkl",
-    )
-
+    monkeypatch.setattr(notebooks, "MODEL_PATH", path)
     monkeypatch.setattr(
         notebooks,
         "train_model",
@@ -657,6 +449,5 @@ def test_notebook_full_data_raw_inspection_and_stale_artifact(
     )
 
     assert notebooks.notebook_evaluate(
-        balanced,
-        "synthetic test",
+        sample, "supplied records"
     ) is bundle

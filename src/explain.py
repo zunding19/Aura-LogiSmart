@@ -1,113 +1,55 @@
-"""Operational heuristics and signed model sensitivity."""
-import math
+"""Exposure heuristics and signed model sensitivities, never failure diagnoses."""
+from src.recommendations import _clean_shipment, _predict_one
+from src.schema import TARGET_COLUMN
 
-from src.preprocessing import (
-    ShipmentValidationError,
-)
-from src.recommendations import (
-    _clean_shipment,
-    _predict_one,
-)
+WEATHER_SEVERITY = {
+    "Clear": 0.0,
+    "Rain": .25,
+    "Fog": .4,
+    "Storm": .75,
+    "Hurricane": 1.0,
+}
 
 
 def _domain_indicators(shipment):
-    eta = shipment["Transit_Duration"]
-    hold = shipment["Buffer_of_Package"]
-    plan = shipment["Planned_Transit_Hours"]
-    deadline = (
-        shipment["Lead-Time in days"] * 24
-    )
-
-    if not math.isfinite(deadline):
-        raise ShipmentValidationError(
-            "Lead time exceeds finite deadline arithmetic."
-        )
-
     indicators = []
 
     def add(category, feature, severity, description):
-        indicators.append({
-            "category": category,
-            "feature": feature,
-            "severity": min(
-                max(severity, 0), 1
-            ),
-            "description": description,
-        })
+        indicators.append(dict(
+            category=category,
+            feature=feature,
+            severity=severity,
+            description=description,
+        ))
 
-    if hold < eta:
+    weather = shipment["Weather_Condition"]
+    if weather != "Clear":
         add(
-            "Cold-chain excursion",
-            "Buffer_of_Package",
-            (eta - hold) / max(eta, .5),
-            (
-                f"Total qualified hold {hold:g} h "
-                f"versus estimated total journey {eta:g} h: "
-                f"margin {hold - eta:g} h. "
-                "No core temperature is measured."
-            ),
+            "Weather exposure",
+            "Weather_Condition",
+            WEATHER_SEVERITY[weather],
+            f"Recorded weather is {weather}; its severity is an explicit "
+            "prototype rule, not a learned probability.",
         )
 
-    reliability = (
-        shipment["Carrier_Reliability_Score"]
-    )
-    corridor = (
-        shipment["Geopolitical_Risk"]
-    )
-    scores = {}
-
-    if eta > deadline or eta > plan:
-        scores["Transit_Duration"] = max(
-            (eta - deadline)
-            / max(deadline, .5),
-            (eta - plan)
-            / max(plan, .5),
-        )
-
+    reliability = shipment["Carrier_Reliability_Score"]
     if reliability < .65:
-        scores["Carrier_Reliability_Score"] = (
-            1 - reliability
-        )
-
-    if corridor >= 6:
-        scores["Geopolitical_Risk"] = (
-            corridor / 10
-        )
-
-    if scores:
-        field = max(
-            scores, key=scores.get
-        )
-
         add(
-            "Transport delay",
-            field,
-            scores[field],
-            (
-                f"Estimated total journey {eta:g} h; "
-                f"planned {plan:g} h; "
-                f"deadline {deadline:g} h; "
-                f"known ETA-plan difference {eta - plan:g} h. "
-                f"Carrier {reliability:g}, "
-                f"corridor {corridor:g}/10 "
-                "are review indicators."
-            ),
+            "Carrier reliability",
+            "Carrier_Reliability_Score",
+            1 - reliability,
+            f"Recorded carrier reliability {reliability:g} is below "
+            "the heuristic 0.65 review threshold.",
         )
 
-    handovers = (
-        shipment["Handover_Count"]
-    )
-
-    if handovers >= 3:
+    exposure = shipment["Geopolitical_Risk_Score"]
+    if exposure >= 6:
         add(
-            "Handover delay",
-            "Handover_Count",
-            handovers / 6,
-            (
-                f"{handovers:g} planned handovers "
-                "increase handling exposure; "
-                "actual dwell time and delay cause are unknown."
-            ),
+            "Geopolitical exposure",
+            "Geopolitical_Risk_Score",
+            exposure / 10,
+            f"Recorded corridor exposure {exposure:g}/10 meets "
+            "the heuristic 6/10 review threshold.",
         )
 
     return sorted(
@@ -117,98 +59,67 @@ def _domain_indicators(shipment):
     )
 
 
-def explain_prediction(
-    shipment_data,
-    model=None,
-):
-    shipment = _clean_shipment(
-        shipment_data
-    )
-    indicators = _domain_indicators(
-        shipment
-    )
+def explain_prediction(shipment_data, model=None) -> dict:
+    """Contributions are p(original)-p(one-field reference).
+
+    Only three explicit references are examined. This is not complete
+    attribution, SHAP, causal diagnosis or a proven intervention effect.
+    """
+    shipment = _clean_shipment(shipment_data)
+    indicators = _domain_indicators(shipment)
 
     category = (
-        "Combined risk"
+        "Combined exposure"
         if len(indicators) > 1
         else indicators[0]["category"]
         if indicators
         else "Routine monitoring"
     )
 
-    result = {
-        "category": category,
-        "domain_indicators": indicators,
-        "category_method": (
-            "Heuristic operational indicators; "
+    result = dict(
+        category=category,
+        target=TARGET_COLUMN,
+        domain_indicators=indicators,
+        category_method=(
+            "Recorded-input exposure heuristics; "
             "not verified causal diagnosis"
         ),
-        "note": (
-            "ETA is estimated total journey time; "
-            "buffer is total qualified packaging capacity. "
-            "No elapsed time, live countdown or measured "
-            "temperature is inferred."
+        note=(
+            "The label records disruption, not spoilage or clinical harm. "
+            "No thermal state, ETA or hospital urgency is inferred. "
+            "Routine monitoring means these heuristic thresholds are "
+            "absent, not that model risk must be low."
         ),
-    }
+    )
 
     if model is None:
         return dict(
             result,
-            method=(
-                "Heuristic domain indicators "
-                "(no model supplied)"
-            ),
-            contribution_unit=(
-                "heuristic severity score"
-            ),
+            method="Heuristic exposure indicators (no model supplied)",
+            contribution_unit="heuristic severity score",
             drivers=[
-                {
-                    "feature": item["feature"],
-                    "description": item["description"],
-                    "contribution": item["severity"],
-                }
+                dict(
+                    feature=item["feature"],
+                    description=item["description"],
+                    contribution=item["severity"],
+                )
                 for item in indicators[:3]
             ],
         )
 
     candidates = [
-        (
-            "Buffer_of_Package",
-            max(
-                shipment["Buffer_of_Package"],
-                shipment["Transit_Duration"] + 6,
-            ),
-        ),
+        ("Weather_Condition", "Clear"),
         (
             "Carrier_Reliability_Score",
-            max(
-                shipment["Carrier_Reliability_Score"],
-                .95,
-            ),
+            max(shipment["Carrier_Reliability_Score"], .95),
         ),
         (
-            "Geopolitical_Risk",
-            min(
-                shipment["Geopolitical_Risk"],
-                2,
-            ),
-        ),
-        (
-            "Transit_Duration",
-            shipment["Planned_Transit_Hours"],
-        ),
-        (
-            "Handover_Count",
-            min(
-                shipment["Handover_Count"],
-                2,
-            ),
+            "Geopolitical_Risk_Score",
+            min(shipment["Geopolitical_Risk_Score"], 2),
         ),
     ]
 
-    baseline = _predict_one(
-        shipment, model
-    )
+    baseline = _predict_one(shipment, model)
     drivers = []
 
     for field, reference in candidates:
@@ -217,42 +128,36 @@ def explain_prediction(
 
         comparison = dict(shipment)
         comparison[field] = reference
+        probability = _predict_one(comparison, model)
 
-        probability = _predict_one(
-            comparison, model
-        )
-
-        drivers.append({
-            "feature": field,
-            "original_value": shipment[field],
-            "reference_value": reference,
-            "counterfactual_probability": probability,
-            "contribution": baseline - probability,
-            "description": (
-                f"Assumed one-field comparison: {field} "
-                f"{shipment[field]} → {reference}; "
-                f"modeled probability {baseline:.1%} "
-                f"→ {probability:.1%}. "
-                "Not a proven cause or intervention effect."
+        drivers.append(dict(
+            feature=field,
+            original_value=shipment[field],
+            reference_value=reference,
+            counterfactual_probability=probability,
+            contribution=baseline - probability,
+            description=(
+                f"Hypothetical one-field reference: {field} "
+                f"{shipment[field]} → {reference}; disruption probability "
+                f"{baseline:.1%} → {probability:.1%}. "
+                "Signed sensitivity, not a verified cause; "
+                "weather is not controllable."
             ),
-        })
+        ))
 
     drivers.sort(
-        key=lambda item: abs(
-            item["contribution"]
-        ),
+        key=lambda item: abs(item["contribution"]),
         reverse=True,
     )
 
     return dict(
         result,
-        method=(
-            "One-at-a-time model sensitivity "
-            "(explicit references; not SHAP)"
-        ),
-        contribution_unit=(
-            "probability difference"
-        ),
+        method="One-at-a-time model sensitivity to three explicit references",
+        contribution_unit="disruption probability difference",
         baseline_probability=baseline,
         drivers=drivers[:3],
+        coverage=(
+            "Weather, carrier reliability and geopolitical "
+            "exposure references only."
+        ),
     )
