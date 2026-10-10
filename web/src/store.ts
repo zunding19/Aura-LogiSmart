@@ -56,9 +56,14 @@ export const useStore = create<State>((set) => ({
   bump: () => set((s) => ({ rev: s.rev + 1 })),
 }));
 
-useStore.subscribe((s) => {
+// A new screen is a new history entry, so the browser's Back button stays inside the app.
+useStore.subscribe((s, old) => {
   const parts: string[] = [s.view];
   if (s.view === "respond" && s.selected) parts.push(s.selected, s.step);
   const hash = `#/${parts.join("/")}`;
-  if (location.hash !== hash) history.replaceState(null, "", hash);
+  if (location.hash === hash) return;
+  if (s.view !== old.view) history.pushState(null, "", hash);
+  else history.replaceState(null, "", hash);
 });
+
+window.addEventListener("popstate", () => useStore.setState(fromHash()));

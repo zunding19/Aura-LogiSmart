@@ -27,9 +27,9 @@ function QueueRow({ row, rank, on, logged }: { row: Data; rank: number; on: bool
         <div className="level">{riskLevel(row.p_failure).name}</div>
         <small><Blocks share={row.p_failure} color={riskFill(row.p_failure)} /></small>
       </div>
-      <button type="button" className={clsx("btn", on && "primary")} aria-label={`Open ${row.Shipment_ID}`}
+      <button type="button" className={clsx("btn", on && "primary")} aria-label={`Respond to ${row.Shipment_ID}`}
         onClick={() => go("respond", row.Shipment_ID, "Detect")}>
-        Open
+        Respond
       </button>
     </div>
   );
@@ -95,7 +95,7 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
                 { label: "In the queue", value: queue.count, sub: "pharma alerts, air and road" },
                 { label: "Expected loss, top 10", value: usd(stats.expected_loss_top), sub: "risk x 10% of cargo value" },
                 { label: "Buffer ends early", value: `${stats.buffer_short} of ${stats.shown}`, sub: "before the shipment arrives", color: stats.buffer_short ? "var(--red)" : undefined },
-                { label: "SLA notices", value: stats.sla_breaches, sub: "escrow locked (simulated)", color: stats.sla_breaches ? "var(--red)" : undefined },
+                { label: "SLA notices", value: stats.sla_breaches, sub: "carrier payout held", color: stats.sla_breaches ? "var(--red)" : undefined },
               ]} />
             </section>
             {selected && <div style={{ marginTop: 16 }}><Brief id={selected} /></div>}

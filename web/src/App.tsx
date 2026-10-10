@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { Toaster, toast } from "sonner";
 import { pct, useApi } from "./lib";
 import { ALERT_LINES, VIEW_NAME, useStore, type View } from "./store";
-import { Banner, Chip } from "./ui";
+import { Banner } from "./ui";
 import MapView from "./views/MapView";
 import Inbox from "./views/Inbox";
 import Guided from "./views/Guided";
@@ -44,6 +44,14 @@ export default function App() {
     });
   }, [first?.id, first?.head, view]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Keyboard and screen reader users land on the new screen, not back at the top of the page.
+  const main = useRef<HTMLElement>(null);
+  const firstView = useRef(true);
+  useEffect(() => {
+    if (firstView.current) firstView.current = false;
+    else main.current?.focus();
+  }, [view]);
+
   const lineIndex = ALERT_LINES.indexOf(line);
   const row = data?.line;
 
@@ -54,17 +62,19 @@ export default function App() {
           <span className="brand-mark" />
           <span className="brand-name">LogiSmart</span>
         </div>
-        <div className="eyebrow navlabel">Operations</div>
-        {OPERATIONS.map((name) => (
-          <button key={name} type="button" className="nav" aria-current={view === name ? "page" : undefined} onClick={() => go(name)}>
-            {VIEW_NAME[name]}
-            {name === "inbox" && open.length > 0 && <span className="count hot">{open.length}</span>}
+        <nav className="navgroup" aria-label="Screens">
+          <div className="eyebrow navlabel">Operations</div>
+          {OPERATIONS.map((name) => (
+            <button key={name} type="button" className="nav" aria-current={view === name ? "page" : undefined} onClick={() => go(name)}>
+              {VIEW_NAME[name]}
+              {name === "inbox" && open.length > 0 && <span className="count hot">{open.length}</span>}
+            </button>
+          ))}
+          <div className="eyebrow navlabel">Proof</div>
+          <button type="button" className="nav" aria-current={view === "evidence" ? "page" : undefined} onClick={() => go("evidence")}>
+            {VIEW_NAME.evidence}
           </button>
-        ))}
-        <div className="eyebrow navlabel">Proof</div>
-        <button type="button" className="nav" aria-current={view === "evidence" ? "page" : undefined} onClick={() => go("evidence")}>
-          {VIEW_NAME.evidence}
-        </button>
+        </nav>
 
         <div className="panel linebox" style={{ marginTop: 16, padding: "12px 16px 16px" }}>
           <div className="field" style={{ marginBottom: 8 }}>
@@ -84,13 +94,11 @@ export default function App() {
           )}
           <p className="fine">Lower line: more caught, more false alarms.</p>
         </div>
-        <p className="fine" style={{ padding: "0 8px" }}>Shipments, cargo values and thermal buffers are simulated.</p>
       </aside>
 
-      <main className="main">
+      <main className="main" ref={main} tabIndex={-1}>
         <div className="crumbs">
           <b>LogiSmart</b>
-          <Chip tone="teal">Simulated shipments</Chip>
           <span className="sep">/</span>
           <b>{VIEW_NAME[view]}</b>
           {data && (
@@ -102,7 +110,12 @@ export default function App() {
           )}
         </div>
 
-        {queue.error && <Banner tone="red" title="Cannot reach LogiSmart's server">{queue.error}</Banner>}
+        {queue.error && (
+          <>
+            <Banner tone="red" title="Cannot reach LogiSmart's server">{queue.error}</Banner>
+            <button type="button" className="btn" style={{ marginTop: 12 }} onClick={() => location.reload()}>Try again</button>
+          </>
+        )}
         {!data && queue.loading && <div className="skeleton" aria-busy="true" />}
         {data && view === "map" && <MapView queue={data} coordinates={meta.data?.coordinates ?? {}} />}
         {data && view === "inbox" && <Inbox queue={data} />}

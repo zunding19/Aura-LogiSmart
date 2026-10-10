@@ -21,7 +21,7 @@ export async function postJson(url: string, body: unknown): Promise<Data> {
   return response.json();
 }
 
-export const SERVER_DOWN = "LogiSmart's server did not answer. Check that python server.py is running.";
+export const SERVER_DOWN = "LogiSmart's server did not answer. Wait a moment, then try again.";
 
 /** Fetch with a small cache. Old data stays on screen while the new answer loads. */
 export function useApi(url: string | null, rev = 0) {

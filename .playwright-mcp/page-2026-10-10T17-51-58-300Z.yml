@@ -1,0 +1,24 @@
+- generic [ref=f2e3]:
+  - complementary [ref=f2e4]:
+    - generic [ref=f2e5]: LogiSmart
+    - navigation "Screens" [ref=f2e8]:
+      - generic [ref=f2e9]: Operations
+      - button "Command map" [ref=f2e10] [cursor=pointer]
+      - button "Alerts inbox" [ref=f2e11] [cursor=pointer]
+      - button "Guided response" [ref=f2e12] [cursor=pointer]
+      - button "What-if simulator" [ref=f2e13] [cursor=pointer]
+      - generic [ref=f2e14]: Proof
+      - button "Evidence" [ref=f2e15] [cursor=pointer]
+    - generic [ref=f2e16]:
+      - generic [ref=f2e17]:
+        - generic [ref=f2e18]:
+          - generic [ref=f2e19]: Alert line
+          - status [ref=f2e20]: 60%
+        - slider "Alert line" [ref=f2e21]: "3"
+      - paragraph [ref=f2e22]: "Lower line: more caught, more false alarms."
+  - main [ref=f2e23]:
+    - generic [ref=f2e24]:
+      - generic [ref=f2e25]: LogiSmart
+      - generic [ref=f2e26]: /
+      - generic [ref=f2e27]: Command map
+  - region "Notifications alt+T"

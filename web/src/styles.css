@@ -57,6 +57,8 @@ button, input, select { font: inherit; color: inherit; }
 .brand-name { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
 .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .navlabel { padding: 12px 8px 8px; }
+.navgroup { display: flex; flex-direction: column; gap: 4px; }
+.main:focus { outline: none; }
 
 .nav {
   display: flex; align-items: center; justify-content: space-between; width: 100%;
@@ -251,6 +253,7 @@ details.banner summary:focus-visible { outline: 2px solid var(--teal); outline-o
   .side { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px 16px; }
   .side .navlabel, .side .linebox, .side .fine { display: none; }
   .brand { padding: 0 8px 0 0; }
+  .navgroup { flex-direction: row; flex-wrap: wrap; align-items: center; }
   .nav { width: auto; gap: 8px; }
   .main { padding: 16px; }
   .cols { grid-template-columns: 1fr !important; }

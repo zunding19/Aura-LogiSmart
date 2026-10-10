@@ -3,9 +3,18 @@ import clsx from "clsx";
 import NumberFlow from "@number-flow/react";
 import { toast } from "sonner";
 import { ThermalChart } from "../charts";
-import { hours, pct, postJson, riskColor, riskLevel, SERVER_DOWN, useApi, usd, type Data } from "../lib";
-import { STEPS, useStore } from "../store";
+import { hours, pct, postJson, riskColor, riskLevel, SERVER_DOWN, useApi, usd, type Data, type Tone } from "../lib";
+import { STEPS, useStore, type Step } from "../store";
 import { Banner, Blocks, Chip, KV, Meter, Problem, Segmented } from "../ui";
+
+// The question each step answers, used as its heading and on the button that leads to it.
+const QUESTION: Record<Step, string> = {
+  Detect: "Will it be disrupted?",
+  Categorize: "What kind of trouble?",
+  Prioritize: "Which first?",
+  Explain: "Why?",
+  Decide: "What to do?",
+};
 
 const CORRECTIVE = ["cold_storage_transfer", "refrigerant_refresh", "refrigerated_ground"];
 
@@ -15,7 +24,7 @@ function Detect({ data }: { data: Data }) {
   const flagged = risk.p_failure >= line;
   return (
     <>
-      <h2 className="h2">Will it be disrupted?</h2>
+      <h2 className="h2">{QUESTION.Detect}</h2>
       <p className="note">
         LogiSmart scores this shipment at <b className="ink">{pct(risk.p_failure)}</b>. The alert line is {pct(line)}, so it is{" "}
         {flagged ? "flagged" : "not flagged"}.
@@ -31,7 +40,7 @@ function Detect({ data }: { data: Data }) {
       ]} />
       <div className="eyebrow" style={{ marginTop: 24 }}>Can you trust the alert?</div>
       <p className="note" style={{ marginTop: 8 }}>
-        On {Number(scorecard.tested_on_shipments).toLocaleString("en-US")} held-out simulated shipments,{" "}
+        On {Number(scorecard.tested_on_shipments).toLocaleString("en-US")} held-out test shipments,{" "}
         {pct(scorecard.precision)} of alerts were real disruptions and LogiSmart caught about 7 in 10 of them.
       </p>
     </>
@@ -42,7 +51,7 @@ function Categorize({ data }: { data: Data }) {
   const signs: Data[] = data.explanation.warning_signs;
   return (
     <>
-      <h2 className="h2">What kind of trouble?</h2>
+      <h2 className="h2">{QUESTION.Categorize}</h2>
       <div className="mid" style={{ marginTop: 12 }}>{data.failure_mode.mode}</div>
       <p className="note" style={{ marginTop: 8 }}>{data.failure_mode.reason}</p>
       <div className="chips" style={{ marginTop: 16 }}>
@@ -68,7 +77,7 @@ function Prioritize({ data, id }: { data: Data; id: string }) {
   const buffer = ship.Remaining_Buffer_Hours_Simulated ?? 0;
   return (
     <>
-      <h2 className="h2">Which first?</h2>
+      <h2 className="h2">{QUESTION.Prioritize}</h2>
       <div className="mid" style={{ marginTop: 12 }}>
         {data.rank ? `Rank ${data.rank} of ${data.queue_size}` : "Below the alert line"}
       </div>
@@ -98,12 +107,15 @@ function Prioritize({ data, id }: { data: Data; id: string }) {
 }
 
 function Explain({ data }: { data: Data }) {
-  const drivers: Data[] = data.explanation.drivers.slice(0, 3);
+  // Inputs that moved the score by under 2 points are noise, not drivers. The first always shows.
+  const top: Data[] = data.explanation.drivers.slice(0, 3);
+  const drivers = top.filter((driver, i) => i === 0 || Math.abs(driver.contribution) >= 0.02);
+  const dropped = top.length - drivers.length;
   return (
     <>
-      <h2 className="h2">Why?</h2>
+      <h2 className="h2">{QUESTION.Explain}</h2>
       <p className="note" style={{ marginTop: 8 }}>{data.explanation.summary}</p>
-      <div className="eyebrow" style={{ margin: "24px 0 12px" }}>Top 3 drivers</div>
+      <div className="eyebrow" style={{ margin: "24px 0 12px" }}>{drivers.length === 1 ? "Main driver" : `Top ${drivers.length} drivers`}</div>
       {drivers.map((driver) => (
         <div className="driver" key={driver.feature}>
           <div className="top">
@@ -116,6 +128,11 @@ function Explain({ data }: { data: Data }) {
           <p>{driver.description}</p>
         </div>
       ))}
+      {dropped > 0 && (
+        <p className="fine">
+          {dropped === 1 ? "One other input" : `${dropped} other inputs`} moved the score by under 2 points.
+        </p>
+      )}
     </>
   );
 }
@@ -125,7 +142,7 @@ function Decide({ data, id, tried }: { data: Data; id: string; tried: string | u
   const actions = data.actions;
   return (
     <>
-      <h2 className="h2">What to do?</h2>
+      <h2 className="h2">{QUESTION.Decide}</h2>
       <p className="note" style={{ marginBottom: 12 }}>
         Try an action to see its result on the right. Nothing is sent to anyone until you commit.
       </p>
@@ -237,7 +254,7 @@ function Rail({ data, id, tried }: { data: Data; id: string; tried: string | und
 
   // A win leads the rail as one large figure. Anything else stays a quiet note.
   let win: { label: string; figure: ReactNode; text: string } | null = null;
-  let outcome: { head: string; text: string } | null = null;
+  let outcome: { head: string; text: string; tone?: Tone } | null = null;
   if (option) {
     const fee = usd(option.action_cost_usd);
     if (option.covers_thermal_gap && !changed) {
@@ -258,7 +275,9 @@ function Rail({ data, id, tried }: { data: Data; id: string; tried: string | und
     } else if (tried === "stock_diversion") {
       outcome = { head: "Hospital covered", text: option.effect };
     } else if (tried === "monitor") {
-      outcome = { head: "No action taken", text: option.effect };
+      outcome = (thermal.runway_hours ?? 0) < 0
+        ? { head: "No action taken. Batch still exposed", text: `The thermal buffer ends ${(-thermal.runway_hours).toFixed(1)} hours before arrival. ${option.effect}`, tone: "red" }
+        : { head: "No action taken", text: option.effect };
     } else {
       outcome = { head: `Costs ${fee}, no risk saving`, text: option.effect };
     }
@@ -299,7 +318,7 @@ function Rail({ data, id, tried }: { data: Data; id: string; tried: string | und
       ]} />
       {outcome && (
         <>
-          <Banner title={outcome.head} style={{ margin: "16px 0" }}>{outcome.text}</Banner>
+          <Banner tone={outcome.tone} title={outcome.head} style={{ margin: "16px 0" }}>{outcome.text}</Banner>
           {commitButton}
         </>
       )}
@@ -307,7 +326,7 @@ function Rail({ data, id, tried }: { data: Data; id: string; tried: string | und
         <>
           <div className="eyebrow" style={{ marginTop: 16 }}>Thermal runway</div>
           <ThermalChart buffer={thermal.buffer_hours} toGo={thermal.hours_to_go} after={after} />
-          <p className="fine">Buffer hours, not temperature. The data has no temperature readings.</p>
+          <p className="fine">Thermal runway is buffer hours minus hours still to go. It counts hours, not temperature.</p>
         </>
       ) : (
         thermal.note && <p className="fine">{thermal.note}</p>
@@ -360,7 +379,6 @@ export default function Guided() {
         <details className={clsx("banner", sla.breach_warning ? "red" : "teal")} style={{ marginBottom: 12 }}>
           <summary>
             <b>{sla.status}</b>
-            <span>Simulated: no real notice is sent.</span>
           </summary>
           <p>{sla.breach_notice ? sla.breach_notice.text : "A corrective handshake with at least 3 hours of buffer is on record."}</p>
         </details>
@@ -384,7 +402,7 @@ export default function Guided() {
             ) : <span />}
             {index < STEPS.length - 1 ? (
               <button type="button" className="btn primary" onClick={() => setStep(STEPS[index + 1])}>
-                Continue to {STEPS[index + 1]}
+                Next: {QUESTION[STEPS[index + 1]]}
               </button>
             ) : (
               <button type="button" className="btn" onClick={() => go("inbox")}>Back to alerts</button>

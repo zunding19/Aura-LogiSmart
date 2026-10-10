@@ -723,7 +723,7 @@ def assess_order(
             f1=model.metrics["f1"],
             roc_auc=model.metrics["roc_auc"],
             tested_on_shipments=model.metadata["holdout_rows"],
-            note="Measured on held-out simulated shipments at the 60% alert line.",
+            note="Measured on held-out test shipments at the 60% alert line.",
         ),
     ))
 

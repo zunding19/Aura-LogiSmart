@@ -6,6 +6,7 @@ The React app lives in web/. Build it once with `npm run build` inside web/.
 State (custody handshakes, logged actions) is kept in memory for the demo.
 """
 import math
+import threading
 from functools import lru_cache
 from pathlib import Path
 
@@ -67,6 +68,9 @@ def alert_line(request):
 @lru_cache(maxsize=8)
 def queue(line):
     q = intake.triage_queue(SHIPMENTS, MODEL, alert_line=line).copy()
+    # A road shipment that would have to cross an ocean fails the data check and stays out.
+    if "Flag_Land_Route_Across_Ocean" in q:
+        q = q[~q["Flag_Land_Route_Across_Ocean"].fillna(0).astype(bool)]
     to_go = (q["Lead_Time_Days"] * 24 - q["Elapsed_Transit_Hours_Simulated"]).clip(lower=0)
     q["hours_to_go"] = to_go
     # Only passive packaging (air freight) counts down; a powered reefer does not.
@@ -111,9 +115,10 @@ def build_alerts(top):
         runway = None if pd.isna(row["runway"]) else row["runway"]
         buffer = row["Remaining_Buffer_Hours_Simulated"] if row["Transport_Mode"] == "Air" else None
         sla = sla_for(sid, p, buffer)
+        tier = row["Hospital_Urgency_Tier_Simulated"]
         body = (
             f"{p:.0%} disruption risk on {money(row['Cargo_Value_USD_Simulated'])} of "
-            f"pharmaceuticals for a {row['Hospital_Urgency_Tier_Simulated']} order."
+            f"pharmaceuticals for {'an' if tier[:1] in 'AEIOU' else 'a'} {tier} order."
         )
         if sla and sla["breach_warning"]:
             kind, tone, head = "SLA breach", "red", "SLA breach notice issued"
@@ -341,5 +346,12 @@ routes.append(Route("/{path:path}", spa))
 
 app = Starlette(routes=routes)
 
+def warm():
+    """Score the top of the queue ahead of the first click, so a shipment opens at once."""
+    for shipment_id in queue(.6).head(10)["Shipment_ID"]:
+        assess_shipment(shipment_id)
+
+
 if __name__ == "__main__":
+    threading.Thread(target=warm, daemon=True).start()
     uvicorn.run(app, host="127.0.0.1", port=8000)
