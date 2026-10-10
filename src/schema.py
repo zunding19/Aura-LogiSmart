@@ -1,5 +1,5 @@
 """Recorded disruption inputs; optional simulated context never enters the model."""
-FEATURE_SCHEMA_VERSION = "aura-disruption-v2"
+FEATURE_SCHEMA_VERSION = "aura-notebook-05-v1"
 DATASET_VERSION = "aura-context-v2"
 TARGET_COLUMN = "Disruption_Occurred"
 
@@ -17,13 +17,29 @@ NUMERIC_COLUMNS = [
     "Carrier_Reliability_Score", "Lead_Time_Days",
 ]
 
-# The user confirms Lead_Time_Days is a planned estimate known before disruption.
-MODEL_NUMERIC_COLUMNS = NUMERIC_COLUMNS + ["month_sin", "month_cos"]
-MODEL_CATEGORICAL_COLUMNS = [
-    "Origin_Port", "Destination_Port", "Transport_Mode",
-    "Product_Category", "Weather_Condition",
+# Exact notebook 05 feature order; fitted transforms stay inside its saved pipelines.
+RAW_MODEL_INPUT_COLUMNS = [
+    "Weather_Condition", "Geopolitical_Risk_Score", "Carrier_Reliability_Score",
+    "Lead_Time_Days", "Distance_km", "Transport_Mode",
 ]
+RAW_MODEL_NUMERIC_COLUMNS = [
+    "Geopolitical_Risk_Score", "Carrier_Reliability_Score", "Lead_Time_Days", "Distance_km",
+]
+ENGINEERED_COLUMNS = [
+    "weather_severity", "severe_weather_flag", "pace_h_per_1000km",
+    "pace_vs_typical", "red_flag_count",
+]
+MODEL_NUMERIC_COLUMNS = RAW_MODEL_NUMERIC_COLUMNS + ENGINEERED_COLUMNS
+MODEL_CATEGORICAL_COLUMNS = ["Weather_Condition", "Transport_Mode"]
 MODEL_FEATURE_COLUMNS = MODEL_NUMERIC_COLUMNS + MODEL_CATEGORICAL_COLUMNS
+FALLBACK_NUMERIC_COLUMNS = RAW_MODEL_NUMERIC_COLUMNS + ["pace_h_per_1000km", "pace_vs_typical"]
+FALLBACK_CATEGORICAL_COLUMNS = ["Transport_Mode"]
+FALLBACK_FEATURE_COLUMNS = FALLBACK_NUMERIC_COLUMNS + FALLBACK_CATEGORICAL_COLUMNS
+
+WEATHER_SEVERITY = {"Clear": 0, "Rain": 1, "Fog": 2, "Storm": 3, "Hurricane": 4}
+TYPICAL_PACE = {"Air": 2.35, "Rail": 20.9, "Road": 17.9, "Sea": 41.5}
+HIGH_RISK_SCORE = 6.0
+LOW_RELIABILITY = 0.70
 
 TRANSPORT_MODES = ["Air", "Sea", "Road", "Rail"]
 PRODUCT_CATEGORIES = [

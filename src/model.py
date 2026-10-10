@@ -1,15 +1,10 @@
-"""Predict the supplied disruption label, not cold-chain or clinical failure."""
-from __future__ import annotations
-
-from dataclasses import dataclass
-from datetime import datetime, timezone
+"""Load and score Notebook 05's fitted models; never train or replace them."""
+from dataclasses import dataclass, field
 import hashlib
-import json
-import os
 from pathlib import Path
-import re
-import tempfile
-from typing import Any
+import pickletools
+import warnings
+import zlib
 
 import joblib
 import numpy as np
@@ -17,611 +12,704 @@ import pandas as pd
 import sklearn
 
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import (
-    GradientBoostingClassifier,
-    RandomForestClassifier,
-)
-from sklearn.impute import SimpleImputer
+from sklearn.exceptions import InconsistentVersionWarning
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
+    average_precision_score,
+    brier_score_loss,
     classification_report,
     confusion_matrix,
     f1_score,
-    make_scorer,
     precision_score,
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import TimeSeriesSplit, cross_validate
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.utils.validation import check_is_fitted
 
 from .features import extract_features
-from .preprocessing import clean_raw_shipment_data
-from .schema import (
-    FEATURE_SCHEMA_VERSION,
-    MODEL_CATEGORICAL_COLUMNS,
-    MODEL_FEATURE_COLUMNS,
-    MODEL_NUMERIC_COLUMNS,
-    TARGET_COLUMN,
+from .schema import MODEL_FEATURE_COLUMNS, TARGET_COLUMN
+
+DEFAULT_MODEL_PATH = (
+    Path(__file__).resolve().parents[1] / "models/aura_final_model.pkl"
 )
 
-ARTIFACT_FORMAT_VERSION = 3
+FALLBACK_FEATURES = [
+    "Geopolitical_Risk_Score",
+    "Carrier_Reliability_Score",
+    "Lead_Time_Days",
+    "Distance_km",
+    "pace_h_per_1000km",
+    "pace_vs_typical",
+    "Transport_Mode",
+]
+
+SCORE_NAMES = {
+    "Precision": "precision",
+    "Recall": "recall",
+    "F1 score": "f1",
+    "ROC AUC": "roc_auc",
+    "Average precision": "average_precision",
+}
 
 
 @dataclass
-class ModelBundle:
+class NotebookModel:
     pipeline: Pipeline
-    metadata: dict[str, Any]
-    metrics: dict[str, Any]
-    comparisons: list[dict[str, Any]]
+    fallback_pipeline: Pipeline
+    package: dict
+    metadata: dict
+    metrics: dict
+    comparisons: list = field(default_factory=list)
+
+    @property
+    def fallback_features(self):
+        return list(self.package["fallback_features"])
 
 
 def risk_level(probability):
     try:
-        probability = float(probability)
+        p = float(probability)
     except (TypeError, ValueError) as exc:
         raise ValueError(
             "Risk probability must be a number from 0 to 1."
         ) from exc
 
-    if not np.isfinite(probability) or not 0 <= probability <= 1:
+    if not np.isfinite(p) or not 0 <= p <= 1:
         raise ValueError(
             "Risk probability must be finite and from 0 to 1."
         )
 
+    # Notebook pd.cut(right=False): a lower edge belongs to the next tier.
     return (
-        "Low" if probability <= .3
-        else "Medium" if probability <= .6
-        else "High" if probability <= .8
+        "Low" if p < .3
+        else "Medium" if p < .6
+        else "High" if p < .8
         else "Critical"
     )
 
 
-def _checked_features(features):
-    if (
-        not isinstance(features, pd.DataFrame)
-        or features.columns.duplicated().any()
-    ):
+def _stored_version(path):
+    """Read the first sklearn version string without executing pickle objects."""
+    data = path.read_bytes()
+
+    if len(data) > 16 * 1024 * 1024:
         raise ValueError(
-            "Supply a feature DataFrame with unique column names."
+            "Notebook model is unexpectedly large; inspect it before loading."
         )
 
-    missing = [
-        column
-        for column in MODEL_FEATURE_COLUMNS
-        if column not in features
-    ]
-    if missing:
-        raise ValueError(
-            f"Missing model features: {missing}. Run extract_features first."
-        )
-
-    result = features.loc[:, MODEL_FEATURE_COLUMNS].copy()
-
-    for column in MODEL_NUMERIC_COLUMNS:
+    if not data.startswith(b"\x80"):
         try:
-            values = pd.to_numeric(
-                result[column], errors="raise"
-            )
-            if np.iscomplexobj(values.to_numpy()):
-                raise ValueError("Complex values are unsupported.")
-            result[column] = values.astype(float)
-        except (TypeError, ValueError) as exc:
+            decoder = zlib.decompressobj()
+            data = decoder.decompress(data, 16 * 1024 * 1024 + 1)
+
+            if (
+                not decoder.eof
+                or decoder.unused_data
+                or len(data) > 16 * 1024 * 1024
+            ):
+                raise ValueError(
+                    "Invalid or oversized compressed notebook model."
+                )
+        except zlib.error as exc:
             raise ValueError(
-                f"Feature {column!r} must contain real numeric values."
+                "Expected Notebook 05's uncompressed or zlib joblib file."
             ) from exc
 
-        if np.isinf(result[column].to_numpy()).any():
-            raise ValueError(
-                f"Feature {column!r} contains infinity; check its units."
-            )
+    found = False
 
-    for column in MODEL_CATEGORICAL_COLUMNS:
-        result[column] = result[column].astype(object).where(
-            result[column].notna(), np.nan
-        )
+    try:
+        for opcode, value, _ in pickletools.genops(data):
+            if opcode.name in {
+                "SHORT_BINUNICODE", "BINUNICODE", "BINUNICODE8", "UNICODE",
+            }:
+                if found:
+                    return value
+                found = value == "_sklearn_version"
+    except (ValueError, UnicodeError) as exc:
+        raise ValueError(
+            "Cannot inspect the notebook model's sklearn version."
+        ) from exc
 
-    return result
-
-
-def _preprocessor():
-    numeric = Pipeline([
-        (
-            "imputer",
-            SimpleImputer(
-                strategy="median",
-                keep_empty_features=True,
-            ),
-        ),
-        ("scaler", StandardScaler()),
-    ])
-
-    categorical = Pipeline([
-        (
-            "imputer",
-            SimpleImputer(
-                strategy="most_frequent",
-                keep_empty_features=True,
-            ),
-        ),
-        (
-            "encoder",
-            OneHotEncoder(
-                handle_unknown="ignore",
-                sparse_output=False,
-            ),
-        ),
-    ])
-
-    return ColumnTransformer(
-        [
-            ("numeric", numeric, MODEL_NUMERIC_COLUMNS),
-            ("categorical", categorical, MODEL_CATEGORICAL_COLUMNS),
-        ],
-        remainder="drop",
+    raise ValueError(
+        "Notebook model has no inspectable sklearn version."
     )
 
 
-def _temporal_splits(clean, labels):
-    if clean["Shipment_ID"].duplicated().any():
+def _validate_package(package):
+    if not isinstance(package, dict):
         raise ValueError(
-            "Repeated Shipment_ID values are unsupported for temporal "
-            "training; supply independent shipments."
+            "Load Notebook 05's dictionary, not an older ModelBundle artifact."
         )
 
-    dates = clean["Date"].dt.normalize()
-    unique_dates = pd.DatetimeIndex(
-        dates.drop_duplicates().sort_values()
-    )
+    required = {
+        "pipeline",
+        "fallback_pipeline",
+        "features",
+        "numeric_features",
+        "categorical_features",
+        "fallback_features",
+        "target",
+        "weather_severity",
+        "typical_pace",
+        "high_risk_score",
+        "low_reliability",
+        "alert_line",
+        "tier_edges",
+        "tier_names",
+        "required_any_of",
+        "test_scores",
+        "trained_on_shipments",
+        "tested_on_shipments",
+        "sklearn_version",
+    }
 
-    if len(unique_dates) < 4:
+    if required - package.keys():
         raise ValueError(
-            "Need at least four distinct record dates for chronological "
-            "holdout and training CV."
+            "Incomplete notebook model package: "
+            f"{sorted(required - package.keys())}."
         )
 
-    cutoff = unique_dates[int(np.floor(len(unique_dates) * .8))]
-    train = np.flatnonzero(dates < cutoff)
-    test = np.flatnonzero(dates >= cutoff)
-
-    if any(
-        len(np.unique(labels[positions])) != 2
-        for positions in [train, test]
-    ):
+    if package["sklearn_version"] != sklearn.__version__:
         raise ValueError(
-            "Both outcomes must appear in chronological training and "
-            "holdout. Add more dated records."
+            f"Notebook model needs sklearn {package['sklearn_version']}; "
+            f"installed {sklearn.__version__}."
         )
-
-    train_dates = dates.iloc[train].reset_index(drop=True)
-    calendar = pd.DatetimeIndex(
-        train_dates.drop_duplicates().sort_values()
-    )
-
-    folds = min(5, len(calendar) - 1)
-    if folds < 2:
-        raise ValueError(
-            "Need at least three training dates for expanding temporal CV."
-        )
-
-    cv = []
-    ranges = []
-
-    for past, future in TimeSeriesSplit(n_splits=folds).split(calendar):
-        a = np.flatnonzero(train_dates.isin(calendar[past]))
-        b = np.flatnonzero(train_dates.isin(calendar[future]))
-
-        if (
-            len(np.unique(labels[train][a])) != 2
-            or len(np.unique(labels[train][b])) != 2
-        ):
-            raise ValueError(
-                "Every temporal CV training/validation block needs both "
-                "outcomes; add more dated records."
-            )
-
-        cv.append((a, b))
-        ranges.append({
-            "train_end": calendar[past[-1]].date().isoformat(),
-            "validation_start": calendar[future[0]].date().isoformat(),
-            "validation_end": calendar[future[-1]].date().isoformat(),
-        })
-
-    return train, test, cv, ranges, cutoff
-
-
-def dataset_fingerprint(df):
-    clean = clean_raw_shipment_data(df, require_target=True)
-    rows = _checked_features(extract_features(clean))
-
-    rows["Shipment_ID"] = clean["Shipment_ID"].astype(str).to_numpy()
-    rows["Date"] = clean["Date"].dt.strftime("%Y-%m-%d").to_numpy()
-    rows[TARGET_COLUMN] = clean[TARGET_COLUMN].to_numpy(dtype=int)
-    rows["Label_Provenance"] = (
-        clean["Label_Provenance"].astype(str).to_numpy()
-        if "Label_Provenance" in clean
-        else "supplied label; authenticity unverified"
-    )
-
-    digest = hashlib.sha256(
-        json.dumps(
-            [FEATURE_SCHEMA_VERSION, TARGET_COLUMN, *rows.columns]
-        ).encode()
-    )
-    digest.update(
-        pd.util.hash_pandas_object(
-            rows, index=False
-        ).to_numpy().tobytes()
-    )
-    return digest.hexdigest()
-
-
-def train_model(
-    df,
-    target=TARGET_COLUMN,
-    data_source="user dataset",
-    model_path=None,
-    random_state=42,
-):
-    if not isinstance(df, pd.DataFrame) or df.empty:
-        raise ValueError(
-            "Training needs a nonempty dated shipment DataFrame "
-            "with disruption labels."
-        )
-
-    if target != TARGET_COLUMN:
-        raise ValueError(
-            f"This contract predicts {TARGET_COLUMN}; "
-            "do not substitute cold-chain failure labels."
-        )
-
-    if not isinstance(data_source, str) or not data_source.strip():
-        raise ValueError(
-            "Supply a data_source description for provenance."
-        )
-
-    clean = clean_raw_shipment_data(df, require_target=True)
-    features = _checked_features(extract_features(clean))
-    labels = clean[TARGET_COLUMN].to_numpy(dtype=int)
 
     if (
-        set(labels) != {0, 1}
-        or min(np.bincount(labels, minlength=2)) < 3
+        package["target"] != TARGET_COLUMN
+        or package["features"] != list(MODEL_FEATURE_COLUMNS)
+        or package["fallback_features"] != FALLBACK_FEATURES
+        or package["numeric_features"] != list(MODEL_FEATURE_COLUMNS[:-2])
+        or package["categorical_features"]
+        != ["Weather_Condition", "Transport_Mode"]
     ):
         raise ValueError(
-            "Need both disruption outcomes and at least three "
-            "independent rows per class."
-        )
-
-    train, test, cv, ranges, cutoff = _temporal_splits(clean, labels)
-
-    candidates = {
-        "Logistic Regression": LogisticRegression(
-            max_iter=2000,
-            class_weight="balanced",
-            random_state=random_state,
-        ),
-        "Random Forest": RandomForestClassifier(
-            n_estimators=100,
-            max_depth=8,
-            min_samples_leaf=2,
-            class_weight="balanced_subsample",
-            random_state=random_state,
-            n_jobs=1,
-        ),
-        "Gradient Boosting": GradientBoostingClassifier(
-            n_estimators=100,
-            max_depth=2,
-            random_state=random_state,
-        ),
-    }
-
-    scoring = {
-        "roc_auc": "roc_auc",
-        "precision": make_scorer(precision_score, zero_division=0),
-        "recall": make_scorer(recall_score, zero_division=0),
-        "f1": make_scorer(f1_score, zero_division=0),
-    }
-
-    comparisons = []
-    pipelines = {}
-
-    for name, estimator in candidates.items():
-        pipeline = Pipeline([
-            ("preprocessor", _preprocessor()),
-            ("classifier", estimator),
-        ])
-
-        scores = cross_validate(
-            pipeline,
-            features.iloc[train],
-            labels[train],
-            cv=cv,
-            scoring=scoring,
-            n_jobs=1,
-            error_score="raise",
-        )
-
-        row = {
-            "model": name,
-            "model_name": name,
-            "cv_roc_auc_std": float(np.std(scores["test_roc_auc"])),
-        }
-        row.update({
-            f"cv_{metric}": float(
-                np.mean(scores[f"test_{metric}"])
-            )
-            for metric in scoring
-        })
-
-        comparisons.append(row)
-        pipelines[name] = pipeline
-
-    selected = max(
-        comparisons,
-        key=lambda row: (row["cv_roc_auc"], row["cv_f1"]),
-    )
-
-    pipeline = pipelines[selected["model"]].fit(
-        features.iloc[train],
-        labels[train],
-    )
-
-    probabilities = pipeline.predict_proba(
-        features.iloc[test]
-    )[:, list(pipeline.classes_).index(1)]
-
-    predicted = (probabilities >= .5).astype(int)
-    actual = labels[test]
-
-    metrics = {
-        name: float(metric(actual, predicted, zero_division=0))
-        for name, metric in [
-            ("precision", precision_score),
-            ("recall", recall_score),
-            ("f1", f1_score),
-        ]
-    }
-    metrics.update(
-        roc_auc=float(roc_auc_score(actual, probabilities)),
-        accuracy=float(accuracy_score(actual, predicted)),
-        confusion_matrix=confusion_matrix(
-            actual, predicted, labels=[0, 1]
-        ).tolist(),
-        n_test=int(len(test)),
-        classification_report=classification_report(
-            actual,
-            predicted,
-            output_dict=True,
-            zero_division=0,
-        ),
-    )
-
-    provenance = (
-        "; ".join(
-            clean["Label_Provenance"].dropna().astype(str).unique()
-        )
-        if "Label_Provenance" in clean
-        else "Disruption_Occurred supplied; authenticity unverified"
-    )
-
-    synthetic = (
-        True if re.search(r"synthetic|simulat", provenance, re.I)
-        else None
-    )
-
-    metadata = {
-        "artifact_format_version": ARTIFACT_FORMAT_VERSION,
-        "feature_schema_version": FEATURE_SCHEMA_VERSION,
-        "target_column": TARGET_COLUMN,
-        "target_semantics": (
-            "Recorded disruption label; not clinical or cold-chain failure"
-        ),
-        "model_name": selected["model"],
-        "model_source": data_source,
-        "data_source": data_source,
-        "source_description": data_source,
-        "is_synthetic": synthetic,
-        "label_source": provenance,
-        "label_provenance": "unverified",
-        "provenance_note": (
-            "Supplied labels are not independently authenticated; "
-            "unmarked does not establish real-world origin."
-        ),
-        "features": list(MODEL_FEATURE_COLUMNS),
-        "n_rows": len(features),
-        "n_train": len(train),
-        "n_test": len(test),
-        "train_rows": len(train),
-        "selection_rows": len(train),
-        "holdout_rows": len(test),
-        "train_positions": train.tolist(),
-        "test_positions": test.tolist(),
-        "train_group_count": len(train),
-        "test_group_count": len(test),
-        "split_method": "chronological holdout at date boundary",
-        "cv_method": "TimeSeriesSplit on distinct dates",
-        "cv_folds": len(cv),
-        "cv_date_ranges": ranges,
-        "selection_metric": "roc_auc",
-        "decision_threshold": .5,
-        "cv_splits": [
-            {
-                "train_positions": train[a].tolist(),
-                "validation_positions": train[b].tolist(),
-            }
-            for a, b in cv
-        ],
-        "holdout_start": cutoff.date().isoformat(),
-        "holdout_fraction": len(test) / len(features),
-        "calibrated": False,
-        "date_assumption": (
-            "Date is assumed to be the pre-outcome shipment record date; "
-            "this has not been confirmed."
-        ),
-        "planned_lead_time_confirmed": True,
-        "excluded_pending_confirmation": [],
-        "input_availability_note": (
-            "User confirmed Lead_Time_Days is planned and pre-outcome "
-            "for this dataset; other input timing is assumed."
-        ),
-        "calibration_note": (
-            "Probability calibration has not been assessed; "
-            "outputs are classifier scores."
-        ),
-        "prediction_horizon": (
-            "Not established; label timing and input availability "
-            "require confirmation."
-        ),
-        "dataset_fingerprint": dataset_fingerprint(clean),
-        "sklearn_version": sklearn.__version__,
-        "random_state": int(random_state),
-        "trained_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-    bundle = ModelBundle(
-        pipeline, metadata, metrics, comparisons
-    )
-
-    if model_path is not None:
-        save_model(bundle, model_path)
-
-    return bundle
-
-
-def _validate_bundle(bundle):
-    if (
-        not isinstance(bundle, ModelBundle)
-        or not isinstance(bundle.pipeline, Pipeline)
-        or not isinstance(bundle.metadata, dict)
-        or not isinstance(bundle.metrics, dict)
-        or not isinstance(bundle.comparisons, list)
-    ):
-        raise ValueError(
-            "Expected a disruption-v2 ModelBundle; retrain old notebook "
-            "dictionaries and cold-chain artifacts."
+            "Notebook target or feature order differs "
+            "from this backend contract."
         )
 
     expected = {
-        "artifact_format_version": ARTIFACT_FORMAT_VERSION,
-        "feature_schema_version": FEATURE_SCHEMA_VERSION,
-        "target_column": TARGET_COLUMN,
-        "features": MODEL_FEATURE_COLUMNS,
-        "sklearn_version": sklearn.__version__,
+        "weather_severity": {
+            "Clear": 0,
+            "Rain": 1,
+            "Fog": 2,
+            "Storm": 3,
+            "Hurricane": 4,
+        },
+        "typical_pace": {
+            "Air": 2.35,
+            "Rail": 20.9,
+            "Road": 17.9,
+            "Sea": 41.5,
+        },
+        "high_risk_score": 6.,
+        "low_reliability": .7,
+        "alert_line": .6,
+        "tier_edges": [0, .3, .6, .8, 1.0001],
+        "required_any_of": [
+            ["Weather_Condition"],
+            ["Lead_Time_Days", "Distance_km", "Transport_Mode"],
+        ],
     }
 
-    if any(
-        bundle.metadata.get(key) != value
-        for key, value in expected.items()
-    ):
+    if any(package[key] != value for key, value in expected.items()):
         raise ValueError(
-            "Target, feature contract, artifact format or sklearn "
-            "version changed; retrain for disruption-v2."
+            "Notebook formulas, thresholds or minimum-input rules "
+            "changed; update the adapter."
         )
 
     if (
-        not bundle.metadata.get("data_source")
-        or not bundle.metadata.get("model_source")
-        or not hasattr(bundle.pipeline, "classes_")
-        or set(bundle.pipeline.classes_) != {0, 1}
+        len(package["tier_names"]) != 4
+        or set(package["test_scores"]) != set(SCORE_NAMES)
     ):
         raise ValueError(
-            "Model lacks fitted binary classes or provenance; retrain it."
+            "Notebook tier labels or reported scorecard are incomplete."
         )
+
+    if any(
+        not np.isfinite(float(score))
+        or not 0 <= float(score) <= 1
+        for score in package["test_scores"].values()
+    ):
+        raise ValueError(
+            "Notebook reported scores must be finite values from 0 to 1."
+        )
+
+    for key in ["trained_on_shipments", "tested_on_shipments"]:
+        if not isinstance(package[key], int) or package[key] <= 0:
+            raise ValueError(
+                "Notebook training/test row counts must be positive integers."
+            )
+
+    contracts = [
+        (
+            "pipeline",
+            package["features"],
+            package["numeric_features"],
+            package["categorical_features"],
+        ),
+        (
+            "fallback_pipeline",
+            FALLBACK_FEATURES,
+            FALLBACK_FEATURES[:-1],
+            ["Transport_Mode"],
+        ),
+    ]
+
+    for key, columns, numeric, categorical in contracts:
+        pipeline = package[key]
+
+        if (
+            not isinstance(pipeline, Pipeline)
+            or list(pipeline.named_steps) != ["prepare", "model"]
+            or not isinstance(
+                pipeline.named_steps["prepare"], ColumnTransformer
+            )
+            or not isinstance(
+                pipeline.named_steps["model"], LogisticRegression
+            )
+        ):
+            raise ValueError(
+                f"{key} must be Notebook 05's fitted "
+                "preparation/logistic-regression pipeline."
+            )
+
+        check_is_fitted(pipeline.named_steps["model"])
+
+        if (
+            list(pipeline.feature_names_in_) != columns
+            or set(pipeline.classes_) != {0, 1}
+            or len(pipeline.classes_) != 2
+        ):
+            raise ValueError(
+                f"{key} has incompatible fitted feature names "
+                "or binary disruption classes."
+            )
+
+        transforms = {
+            name: (step, cols)
+            for name, step, cols
+            in pipeline.named_steps["prepare"].transformers_
+        }
+
+        if any(
+            name not in transforms
+            or list(transforms[name][1]) != cols
+            for name, cols in [
+                ("numeric", numeric),
+                ("categorical", categorical),
+            ]
+        ):
+            raise ValueError(
+                f"{key} fitted preprocessing columns "
+                "do not match its feature lists."
+            )
+
+
+def load_model(path=DEFAULT_MODEL_PATH):
+    """Only use trusted, reviewed local files: joblib can execute pickle constructors."""
+    artifact = Path(path).expanduser()
+
+    if (
+        "://" in str(path)
+        or artifact.suffix.lower() not in {".pkl", ".joblib"}
+    ):
+        raise ValueError(
+            "Supply a reviewed local Notebook 05 .pkl or .joblib path."
+        )
+
+    if not artifact.is_file():
+        raise FileNotFoundError(
+            f"Missing notebook model {artifact}; "
+            "copy models/aura_final_model.pkl from main."
+        )
+
+    version = _stored_version(artifact)
+
+    if version != sklearn.__version__:
+        raise ValueError(
+            f"Notebook model needs sklearn {version}; "
+            f"installed {sklearn.__version__}. "
+            "Install matching dependencies."
+        )
+
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", InconsistentVersionWarning)
+            package = joblib.load(artifact)
+
+        _validate_package(package)
+    except Exception as exc:
+        raise ValueError(
+            f"Cannot use notebook model {artifact}: {exc}"
+        ) from exc
+
+    source = (
+        "Notebook 05's supplied fitted model; "
+        "label authenticity unverified"
+    )
+
+    metadata = {
+        "model_name": "Logistic Regression",
+        "model_source": source,
+        "data_source": source,
+        "artifact_path": str(artifact.resolve()),
+        "artifact_sha256": hashlib.sha256(
+            artifact.read_bytes()
+        ).hexdigest(),
+        "feature_schema_version": "aura-notebook-05-v1",
+        "features": list(package["features"]),
+        "fallback_features": list(FALLBACK_FEATURES),
+        "target_column": TARGET_COLUMN,
+        "target_semantics": (
+            "Supplied disruption label; not spoilage or clinical failure"
+        ),
+        "decision_threshold": package["alert_line"],
+        "alert_line": package["alert_line"],
+        "tier_edges": list(package["tier_edges"]),
+        "tier_names": list(package["tier_names"]),
+        "weather_severity": dict(package["weather_severity"]),
+        "typical_pace": dict(package["typical_pace"]),
+        "high_risk_score": package["high_risk_score"],
+        "low_reliability": package["low_reliability"],
+        "sklearn_version": package["sklearn_version"],
+        "train_rows": package["trained_on_shipments"],
+        "holdout_rows": package["tested_on_shipments"],
+        "label_provenance": "unverified",
+        "is_synthetic": None,
+        "calibrated": False,
+        "calibration_note": (
+            "Calibration has not been independently established."
+        ),
+        "split_method": (
+            "Notebook stratified random 80/20 split, seed 42; "
+            "not chronological"
+        ),
+        "evaluation_note": (
+            "Reported scores require reproduction; "
+            "full-data feature exploration limits independence."
+        ),
+        "prediction_horizon": "Not established",
+        "planned_lead_time_confirmed": True,
+    }
+
+    metrics = {
+        SCORE_NAMES[key]: float(value)
+        for key, value in package["test_scores"].items()
+    }
+    metrics.update(
+        reported_test_scores=dict(package["test_scores"]),
+        evaluation_status="artifact_reported_not_recomputed",
+    )
+
+    return NotebookModel(
+        package["pipeline"],
+        package["fallback_pipeline"],
+        package,
+        metadata,
+        metrics,
+    )
+
+
+def _features_for_model(df, model):
+    if not isinstance(model, NotebookModel):
+        raise ValueError(
+            "Load Notebook 05's model with load_model first; "
+            "no fallback training is available."
+        )
+
+    _validate_package(model.package)
+
+    if (
+        not isinstance(df, pd.DataFrame)
+        or df.columns.duplicated().any()
+    ):
+        raise ValueError(
+            "Supply a shipment DataFrame with unique column names."
+        )
+
+    features = extract_features(df, config=model.package)
+
+    if list(features.columns) != model.package["features"]:
+        raise ValueError(
+            "extract_features must return the exact "
+            "ordered Notebook 05 feature list."
+        )
+
+    if np.isinf(
+        features[model.package["numeric_features"]].to_numpy(dtype=float)
+    ).any():
+        raise ValueError(
+            "Model features contain infinity; "
+            "check distance and lead-time units."
+        )
+
+    return features
+
+
+def _probability(pipeline, features):
+    if features.empty:
+        return np.array([], dtype=float)
+
+    p = pipeline.predict_proba(features)[
+        :, list(pipeline.classes_).index(1)
+    ]
+
+    if (
+        not np.isfinite(p).all()
+        or ((p < 0) | (p > 1)).any()
+    ):
+        raise ValueError(
+            "Notebook model returned invalid disruption probabilities."
+        )
+
+    return p
 
 
 def predict_failure_risk(features_df, model):
-    """p_disruption is primary; p_failure is an identical compatibility alias."""
-    _validate_bundle(model)
-    features = _checked_features(features_df)
+    """Rebuild features; the notebook's own no-weather model handles unknown weather."""
+    features = _features_for_model(features_df, model)
+    known_weather = features["weather_severity"].notna().to_numpy()
 
-    try:
-        probabilities = (
-            model.pipeline.predict_proba(features)[
-                :, list(model.pipeline.classes_).index(1)
-            ]
-            if len(features)
-            else np.array([], dtype=float)
-        )
-    except (AttributeError, IndexError, TypeError, ValueError) as exc:
-        raise ValueError(
-            "Cannot predict these inputs; check features or retrain the model."
-        ) from exc
+    complete_trip = (
+        features[["Lead_Time_Days", "Distance_km"]].notna().all(axis=1)
+        & features["Transport_Mode"].isin(model.package["typical_pace"])
+    ).to_numpy()
 
-    if (
-        not np.isfinite(probabilities).all()
-        or (
-            (probabilities < -1e-12)
-            | (probabilities > 1 + 1e-12)
-        ).any()
-    ):
+    invalid = np.flatnonzero(~known_weather & ~complete_trip)
+
+    if len(invalid):
+        indices = features.index.take(invalid).tolist()
         raise ValueError(
-            "Model returned invalid probabilities; retrain it."
+            "Insufficient data for reliable prediction "
+            f"at rows {indices}: supply recognized weather "
+            "or valid Lead_Time_Days, Distance_km and Transport_Mode."
         )
 
-    probabilities = np.clip(probabilities, 0, 1)
+    p = np.empty(len(features), dtype=float)
+
+    p[known_weather] = _probability(
+        model.pipeline,
+        features.iloc[
+            np.flatnonzero(known_weather)
+        ][model.package["features"]],
+    )
+
+    p[~known_weather] = _probability(
+        model.fallback_pipeline,
+        features.iloc[
+            np.flatnonzero(~known_weather)
+        ][FALLBACK_FEATURES],
+    )
+
+    tier = np.searchsorted(
+        model.package["tier_edges"][1:-1],
+        p,
+        side="right",
+    )
 
     return pd.DataFrame(
         {
-            "p_disruption": probabilities,
-            "p_failure": probabilities,
-            "risk_level": [risk_level(p) for p in probabilities],
+            "p_disruption": p,
+            "p_failure": p,
+            "risk_level": [risk_level(value) for value in p],
+            "risk_tier": [
+                model.package["tier_names"][i] for i in tier
+            ],
+            "is_alert": p >= model.package["alert_line"],
             "target_column": TARGET_COLUMN,
             "model_source": model.metadata["model_source"],
+            "model_variant": np.where(
+                known_weather, "primary", "weather_missing"
+            ),
         },
         index=features.index,
     )
 
 
-def _local_artifact_path(path):
+def dataset_fingerprint(df):
+    columns = [
+        column
+        for column in [
+            "Shipment_ID",
+            "Weather_Condition",
+            "Geopolitical_Risk_Score",
+            "Carrier_Reliability_Score",
+            "Lead_Time_Days",
+            "Distance_km",
+            "Transport_Mode",
+            TARGET_COLUMN,
+        ]
+        if column in df
+    ]
+
+    return hashlib.sha256(
+        pd.util.hash_pandas_object(
+            df[columns], index=False
+        ).to_numpy().tobytes()
+    ).hexdigest()
+
+
+def _score(labels, probabilities, threshold):
+    predicted = probabilities >= threshold
+
+    return {
+        "precision": float(
+            precision_score(labels, predicted, zero_division=0)
+        ),
+        "recall": float(
+            recall_score(labels, predicted, zero_division=0)
+        ),
+        "f1": float(
+            f1_score(labels, predicted, zero_division=0)
+        ),
+        "roc_auc": float(
+            roc_auc_score(labels, probabilities)
+        ),
+        "average_precision": float(
+            average_precision_score(labels, probabilities)
+        ),
+        "accuracy": float(
+            accuracy_score(labels, predicted)
+        ),
+        "brier": float(
+            brier_score_loss(labels, probabilities)
+        ),
+        "confusion_matrix": confusion_matrix(
+            labels, predicted, labels=[0, 1]
+        ).tolist(),
+        "classification_report": classification_report(
+            labels,
+            predicted,
+            output_dict=True,
+            zero_division=0,
+        ),
+    }
+
+
+def evaluate_model(df, model=None):
+    """Reproduce Notebook 05's split/scores on the original ordered CSV; never fit."""
+    model = load_model() if model is None else model
+    features = _features_for_model(df, model)
+
+    if TARGET_COLUMN not in df:
+        raise ValueError(
+            f"Evaluation requires {TARGET_COLUMN} labels."
+        )
+
+    labels = pd.to_numeric(
+        df[TARGET_COLUMN], errors="raise"
+    ).to_numpy()
+
+    if pd.isna(labels).any() or set(labels) != {0, 1}:
+        raise ValueError(
+            "Evaluation requires both binary disruption outcomes, "
+            "without missing labels."
+        )
+
+    expected = (
+        model.package["trained_on_shipments"]
+        + model.package["tested_on_shipments"]
+    )
+
+    if len(df) != expected:
+        raise ValueError(
+            "Notebook score reproduction requires "
+            f"the original {expected} ordered rows, got {len(df)}."
+        )
+
     if (
-        "://" in str(path)
-        or Path(path).suffix.lower() not in {".pkl", ".joblib"}
+        "Shipment_ID" in df
+        and df["Shipment_ID"].duplicated().any()
     ):
         raise ValueError(
-            "Use a trusted local .pkl or .joblib path; "
-            "never an uploaded pickle."
-        )
-    return Path(path).expanduser()
-
-
-def save_model(bundle, path):
-    _validate_bundle(bundle)
-    destination = _local_artifact_path(path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-
-    with tempfile.NamedTemporaryFile(
-        dir=destination.parent,
-        suffix=".pkl",
-        delete=False,
-    ) as handle:
-        temporary = Path(handle.name)
-
-    try:
-        joblib.dump(bundle, temporary, compress=3)
-        os.replace(temporary, destination)
-    finally:
-        if temporary.exists():
-            temporary.unlink()
-
-
-def load_model(path):
-    """Trusted local project artifacts only: joblib/pickle can execute code."""
-    artifact = _local_artifact_path(path)
-
-    if not artifact.is_file():
-        raise FileNotFoundError(
-            f"Missing model {artifact}; train a disruption-v2 artifact first."
+            "Duplicate shipment IDs prevent reproducing "
+            "the notebook's independent row split."
         )
 
-    try:
-        bundle = joblib.load(artifact)
-    except Exception as exc:
+    train, test = train_test_split(
+        np.arange(len(df)),
+        test_size=.2,
+        stratify=labels,
+        random_state=42,
+    )
+
+    if (
+        len(train) != model.package["trained_on_shipments"]
+        or len(test) != model.package["tested_on_shipments"]
+    ):
         raise ValueError(
-            f"Cannot load {artifact}; retrain with this environment."
-        ) from exc
+            "Reconstructed notebook split does not "
+            "match stored training/test counts."
+        )
 
-    _validate_bundle(bundle)
-    return bundle
+    if features.iloc[test]["weather_severity"].isna().any():
+        raise ValueError(
+            "Original notebook test-score reproduction requires "
+            "recognized weather on every test row."
+        )
+
+    primary = _score(
+        labels[test],
+        _probability(
+            model.pipeline,
+            features.iloc[test][model.package["features"]],
+        ),
+        .6,
+    )
+    fallback = _score(
+        labels[test],
+        _probability(
+            model.fallback_pipeline,
+            features.iloc[test][FALLBACK_FEATURES],
+        ),
+        .6,
+    )
+
+    matches = {
+        key: round(primary[SCORE_NAMES[key]], 4) == float(value)
+        for key, value in model.package["test_scores"].items()
+    }
+
+    return {
+        **primary,
+        "primary_metrics": primary,
+        "fallback_metrics": fallback,
+        "reported_scores": dict(model.package["test_scores"]),
+        "reported_scores_match": matches,
+        "all_reported_scores_match": all(matches.values()),
+        "n_train": len(train),
+        "n_test": len(test),
+        "train_positions": train.tolist(),
+        "test_positions": test.tolist(),
+        "decision_threshold": .6,
+        "dataset_fingerprint": dataset_fingerprint(df),
+        "target_column": TARGET_COLUMN,
+        "evaluation_status": (
+            "recomputed_on_notebook_split_without_refitting"
+        ),
+        "split_method": model.metadata["split_method"],
+        "evaluation_note": (
+            "Artifact has no training-data fingerprint; "
+            "matching scores support reproduction, "
+            "not proof of original data identity "
+            "or independently selected features."
+        ),
+    }
+
+
+def train_model(*args, **kwargs):
+    raise ValueError(
+        "Backend training is disabled. Use the fitted models "
+        "from Notebook 05 and load_model()."
+    )
+
+
+def save_model(*args, **kwargs):
+    raise ValueError(
+        "Backend model replacement is disabled. "
+        "Notebook 05 owns models/aura_final_model.pkl."
+    )

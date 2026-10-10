@@ -1,19 +1,13 @@
-"""Backend helpers for the notebook teammate's disruption-v2 migration."""
+"""Compatibility helpers that always use the saved Notebook 05 model."""
 import json
 from pathlib import Path
 
 from src.data_loader import read_raw_shipments
-from src.model import (
-    dataset_fingerprint,
-    load_model,
-    save_model,
-    train_model,
-)
-from src.schema import TARGET_COLUMN
+from src.model import dataset_fingerprint, evaluate_model, load_model
 
 ROOT = Path(__file__).resolve().parents[1]
 PROCESSED_PATH = ROOT / "data/processed/aura_shipments.csv"
-MODEL_PATH = ROOT / "models/aura_disruption_model.pkl"
+MODEL_PATH = ROOT / "models/aura_final_model.pkl"
 
 
 def _project_path(value):
@@ -23,6 +17,7 @@ def _project_path(value):
 
 def notebook_data(data_path="", mapping_path=""):
     path = _project_path(data_path) if data_path else PROCESSED_PATH
+
     mapping = (
         json.loads(
             _project_path(mapping_path).read_text(encoding="utf-8")
@@ -32,11 +27,10 @@ def notebook_data(data_path="", mapping_path=""):
     )
 
     raw = read_raw_shipments(path, column_mapping=mapping)
-    source = (
-        "; ".join(raw["Data_Source"].dropna().astype(str).unique())
-        if "Data_Source" in raw
-        else "Supplied supply-chain records; authenticity unverified"
+    source = "; ".join(
+        raw["Data_Source"].dropna().astype(str).unique()
     )
+
     return raw, source
 
 
@@ -45,32 +39,13 @@ def data_fingerprint(clean):
 
 
 def notebook_train(clean, source):
-    bundle = train_model(
-        clean,
-        target=TARGET_COLUMN,
-        data_source=source,
+    raise ValueError(
+        "Train and export in Notebook 05. "
+        "Backend helpers never replace aura_final_model.pkl."
     )
-    save_model(bundle, MODEL_PATH)
-    return bundle, MODEL_PATH
 
 
-def notebook_evaluate(clean, source):
-    fingerprint = dataset_fingerprint(clean)
-
-    if MODEL_PATH.is_file():
-        try:
-            bundle = load_model(MODEL_PATH)
-        except ValueError:
-            bundle = None
-
-        if (
-            bundle is not None
-            and bundle.metadata.get("dataset_fingerprint") == fingerprint
-        ):
-            return bundle
-
-    return train_model(
-        clean,
-        target=TARGET_COLUMN,
-        data_source=source,
-    )
+def notebook_evaluate(clean, source=""):
+    model = load_model(MODEL_PATH)
+    model.metrics = evaluate_model(clean, model)
+    return model
