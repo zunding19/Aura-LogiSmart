@@ -10,12 +10,14 @@ from src.explain import explain_prediction
 from src.features import add_features
 from src.model import load_model, predict_failure_risk
 from src.preprocessing import ShipmentValidationError, _key
-from src.prioritize import URGENCY_WEIGHT
+from src.data_loader import DEMO_PATH
+from src.prioritize import URGENCY_WEIGHT, calculate_triage_queue
 from src.recommendations import (
     ACTION_CATALOG,
     ALERT_LINE,
     LOSS_SHARE,
     _clean_shipment,
+    action_applies,
     check_sla_status,
     get_recommended_action,
     simulate_intervention,
@@ -23,6 +25,12 @@ from src.recommendations import (
 from src.schema import TYPICAL_PACE, WEATHER_SEVERITY
 
 INSUFFICIENT = "Insufficient data for reliable prediction"
+OUT_OF_SCOPE = "Outside Aura's scope"
+
+# The product covers the air leg and the road leg to the hospital.
+# The model still learns from every mode, because mode does not change
+# how often a shipment is disrupted.
+IN_SCOPE_MODES = ("Air", "Road")
 
 # Form field names (left) and the names the rest of the backend uses (right).
 ORDER_ALIASES = {
@@ -413,7 +421,24 @@ def _top_reasons(thermal, featured, clean, explanation):
 def _actions(clean, model, category, probability, cargo, countdown, alert):
     outcomes = []
 
-    for action_id in ACTION_CATALOG:
+    for action_id, action in ACTION_CATALOG.items():
+        if not action_applies(action_id, clean):
+            # Kept in the list so the screen can show it as unavailable.
+            outcomes.append(dict(
+                action_id=action_id,
+                title=action["title"],
+                available=False,
+                unavailable_reason="Only available for air shipments.",
+                risk_before=probability,
+                risk_after=probability,
+                action_cost_usd=action["cost_usd"],
+                net_saving_usd=None,
+                thermal_runway_hours_after=None,
+                kind=action["kind"],
+                effect=action["effect"],
+            ))
+            continue
+
         try:
             result = simulate_intervention(clean, action_id, model)
         except ValueError:
@@ -429,6 +454,8 @@ def _actions(clean, model, category, probability, cargo, countdown, alert):
         outcomes.append(dict(
             action_id=action_id,
             title=result["title"],
+            available=True,
+            unavailable_reason=None,
             risk_before=result["before_probability"],
             risk_after=result["after_probability"],
             action_cost_usd=result["action_cost_usd"],
@@ -506,6 +533,18 @@ def assess_order(order, model=None, risk_provider=None, custody_records=None):
     try:
         shipment, inferred, ignored = prepare_order(order, risk_provider)
         clean = _clean_shipment(shipment, model)
+
+        if clean.get("Transport_Mode") in {"Sea", "Rail"}:
+            return _plain(dict(
+                status=OUT_OF_SCOPE,
+                reason=(
+                    "Aura covers air and road shipments. "
+                    f"This one travels by {clean['Transport_Mode'].lower()}."
+                ),
+                inferred=inferred,
+                ignored_fields=ignored,
+            ))
+
         frame = pd.DataFrame([clean])
         risk = predict_failure_risk(frame, model).iloc[0]
         featured = add_features(frame, config=model.metadata).iloc[0]
@@ -537,8 +576,7 @@ def assess_order(order, model=None, risk_provider=None, custody_records=None):
         or (isinstance(order, Mapping) and "Context_Source" in order)
     )
     countdown = not (
-        clean.get("Transport_Mode") in {"Sea", "Road", "Rail"}
-        and assumed_buffer
+        clean.get("Transport_Mode") == "Road" and assumed_buffer
     )
     thermal = dict(
         storage_standard=clean.get("Storage_Standard_Simulated"),
@@ -627,6 +665,20 @@ def assess_order(order, model=None, risk_provider=None, custody_records=None):
     ))
 
 
+def triage_queue(shipments=None, model=None, top=None):
+    """Score shipments and return the in-scope pharmaceutical alerts, most urgent first."""
+    model = _default_model() if model is None else model
+    if shipments is None:
+        shipments = pd.read_csv(DEMO_PATH)
+
+    in_scope = shipments[
+        shipments["Transport_Mode"].isin(IN_SCOPE_MODES)
+    ]
+    scored = in_scope.join(predict_failure_risk(in_scope, model))
+    queue = calculate_triage_queue(scored)
+    return queue if top is None else queue.head(top)
+
+
 def rank_orders(orders, model=None, risk_provider=None, custody_records=None):
     """Assess several entered orders and put the most urgent first."""
     assessed = [
@@ -643,8 +695,11 @@ def rank_orders(orders, model=None, risk_provider=None, custody_records=None):
 
 __all__ = [
     "INSUFFICIENT",
+    "OUT_OF_SCOPE",
+    "IN_SCOPE_MODES",
     "ORDER_ALIASES",
     "assess_order",
+    "triage_queue",
     "rank_orders",
     "prepare_order",
     "estimate_distance_km",

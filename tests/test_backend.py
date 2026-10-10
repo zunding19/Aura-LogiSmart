@@ -615,6 +615,7 @@ def test_best_action_matches_notebook_assumed_net_savings(
 ):
     from src.recommendations import (
         ACTION_CATALOG,
+        action_applies,
         get_recommended_action,
     )
 
@@ -637,6 +638,9 @@ def test_best_action_matches_notebook_assumed_net_savings(
         net = {}
 
         for key, item in ACTION_CATALOG.items():
+            if not action_applies(key, row):
+                continue
+
             changed = reference_action(
                 original,
                 **item["changes"],

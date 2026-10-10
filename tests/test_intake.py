@@ -141,7 +141,7 @@ def test_powered_container_buffer_is_not_a_countdown(model):
 
     data = pd.read_csv("data/processed/aura_shipments.csv")
     reefer = data[
-        data.Transport_Mode.eq("Sea")
+        data.Transport_Mode.eq("Road")
         & data.Product_Category.eq("Pharmaceuticals")
     ].iloc[0]
     result = assess_order(reefer, model)
@@ -152,9 +152,42 @@ def test_powered_container_buffer_is_not_a_countdown(model):
     assert "excursion" not in result["failure_mode"]["mode"].lower()
     assert result["actions"]["thermal_action_id"] is None
 
-    ambient = assess_order(data[data.Product_Category.eq("Textiles")].iloc[0], model)
+    ambient = assess_order(
+        data[
+            data.Product_Category.eq("Textiles") & data.Transport_Mode.eq("Road")
+        ].iloc[0],
+        model,
+    )
     assert ambient["status"] == "ok"
     assert len(ambient["actions"]["options"]) == 6
+
+    # A road shipment cannot be moved to the next flight.
+    flight = next(
+        item for item in result["actions"]["options"]
+        if item["action_id"] == "direct_flight"
+    )
+    assert flight["available"] is False
+    assert flight["risk_after"] == flight["risk_before"]
+    assert result["actions"]["recommended_action_id"] != "direct_flight"
+
+
+def test_sea_and_rail_are_out_of_scope(model):
+    import pandas as pd
+
+    from src.intake import OUT_OF_SCOPE, triage_queue
+
+    data = pd.read_csv("data/processed/aura_shipments.csv")
+    for mode in ["Sea", "Rail"]:
+        result = assess_order(data[data.Transport_Mode.eq(mode)].iloc[0], model)
+        assert result["status"] == OUT_OF_SCOPE
+        assert mode.lower() in result["reason"]
+
+    queue = triage_queue(data, model)
+    assert set(queue.Transport_Mode) <= {"Air", "Road"}
+    assert queue.Product_Category.eq("Pharmaceuticals").all()
+    assert queue.priority.is_monotonic_decreasing
+    assert len(triage_queue(data, model, top=10)) == 10
+    assert queue.iloc[0].Shipment_ID == "SC-12132"
 
 
 def test_helpers():

@@ -49,8 +49,9 @@ _DEFINITIONS = [
         {"weather_at_worst": "Rain", "risk_cap": 3.0},
         450,
         "risk",
-        "Skips the stopover, so the shipment avoids the worst weather "
-        "and the high-risk corridor, and the trip gets shorter.",
+        "Air shipments only. Skips the stopover, so the shipment avoids "
+        "the worst weather and the high-risk corridor, and the trip "
+        "gets shorter.",
     ),
     (
         "refrigerant_refresh",
@@ -82,6 +83,9 @@ _DEFINITIONS = [
     ),
 ]
 
+# A sea, road or rail shipment cannot be moved to the next flight.
+AIR_ONLY_ACTIONS = {"direct_flight"}
+
 ACTION_CATALOG = {
     key: dict(
         action_id=key,
@@ -91,9 +95,18 @@ ACTION_CATALOG = {
         kind=kind,
         effect=effect,
         rationale=effect,
+        air_only=key in AIR_ONLY_ACTIONS,
     )
     for key, title, change, cost, kind, effect in _DEFINITIONS
 }
+
+
+def action_applies(action_id, shipment):
+    """False when the action cannot be carried out on this shipment."""
+    return (
+        action_id not in AIR_ONLY_ACTIONS
+        or shipment.get("Transport_Mode") == "Air"
+    )
 
 ACTIONS = ACTION_CATALOG
 
@@ -288,6 +301,11 @@ def simulate_intervention(shipment_data, action_id, model):
     original = _clean_shipment(shipment_data, model)
     action = ACTION_CATALOG[action_id]
 
+    if not action_applies(action_id, original):
+        raise ShipmentValidationError(
+            f"{action['title']} is only available for air shipments."
+        )
+
     scenario = apply_action(
         pd.DataFrame([original]),
         **action["changes"],
@@ -430,9 +448,11 @@ def get_recommended_action(
         )
 
     if model is not None:
+        cleaned = _clean_shipment(shipment_data, model)
         outcomes = [
             simulate_intervention(shipment_data, key, model)
             for key in ACTION_CATALOG
+            if action_applies(key, cleaned)
         ]
 
         if any(
@@ -474,6 +494,11 @@ def get_recommended_action(
         if probability < ALERT_LINE
         else mapping.get(risk_category, "monitor")
     )
+
+    if shipment_data is not None and not action_applies(
+        action, dict(shipment_data)
+    ):
+        action = "refrigerated_ground"
 
     return dict(
         ACTION_CATALOG[action],

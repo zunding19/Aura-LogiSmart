@@ -107,7 +107,7 @@ def test_assessment_carries_the_sla_and_reacts_to_the_handshake(model):
 
     # A powered container's assumed buffer cannot breach the SLA.
     reefer = data[
-        data.Transport_Mode.eq("Sea")
+        data.Transport_Mode.eq("Road")
         & data.Product_Category.eq("Pharmaceuticals")
         & data.Weather_Condition.eq("Hurricane")
     ].iloc[0]
