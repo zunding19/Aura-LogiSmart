@@ -1,0 +1,27 @@
+node_modules/
+.next/
+out/
+dist/
+build/
+.vercel/
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+*.log
+.claude/settings.local.json
+
+# Claude Code internal files and local configs
+.claude/
+CLAUDE.local.md
+Start Claude.bat
+Windows - double-click me.bat
+
+# Python and environment artifacts
+.venv/
+__pycache__/
+*.pyc
+.env
+
+CLAUDE.md
