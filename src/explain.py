@@ -1,106 +1,118 @@
-#produce operational risks categories and the top 3 model sensitives
+"""Operational heuristics and signed model sensitivity."""
 import math
 
-from src.preprocessing import ShipmentValidationError
+from src.preprocessing import (
+    ShipmentValidationError,
+)
 from src.recommendations import (
     _clean_shipment,
     _predict_one,
 )
 
 
-def _domain_indicators(shipment: dict) -> list[dict]:
-    buffer = shipment["Buffer_of_Package"]
-    deadline = shipment["Lead-Time in days"] * 24.0
+def _domain_indicators(shipment):
+    eta = shipment["Transit_Duration"]
+    hold = shipment["Buffer_of_Package"]
+    plan = shipment["Planned_Transit_Hours"]
+    deadline = (
+        shipment["Lead-Time in days"] * 24
+    )
 
     if not math.isfinite(deadline):
         raise ShipmentValidationError(
-            "Lead time is too large "
-            "to compute a finite deadline scenario."
+            "Lead time exceeds finite deadline arithmetic."
         )
 
-    elapsed = shipment["Transit_Duration"]
-    remaining = max(deadline - elapsed, 0.0)
-    reliability = shipment["Carrier_Reliability_Score"]
-    geopolitical = shipment["Geopolitical_Risk"]
     indicators = []
 
-    if buffer < 3.0 or buffer < remaining:
-        severity = max(
-            max(0.0, (3.0 - buffer) / 3.0),
-            max(
-                0.0,
-                (remaining - buffer) / max(remaining, 0.5),
-            ),
-        )
+    def add(category, feature, severity, description):
         indicators.append({
-            "category": "Cold-chain excursion",
-            "feature": "Buffer_of_Package",
-            "severity": severity,
-            "description": (
-                f"{buffer:.1f} h qualified hold buffer "
-                f"versus {remaining:.1f} h remaining "
-                "until the planned deadline; "
-                "packaging compatibility and actual ETA "
-                "need operator confirmation."
+            "category": category,
+            "feature": feature,
+            "severity": min(
+                max(severity, 0), 1
             ),
+            "description": description,
         })
 
-    elapsed_ratio = elapsed / max(deadline, 0.5)
-    transport_scores = {}
-
-    if elapsed_ratio >= 0.8:
-        transport_scores["Transit_Duration"] = min(
-            elapsed_ratio, 1.0
-        )
-    if reliability < 0.65:
-        transport_scores["Carrier_Reliability_Score"] = (
-            1.0 - reliability
-        )
-    if geopolitical >= 6.0:
-        transport_scores["Geopolitical_Risk"] = (
-            geopolitical / 10.0
+    if hold < eta:
+        add(
+            "Cold-chain excursion",
+            "Buffer_of_Package",
+            (eta - hold) / max(eta, .5),
+            (
+                f"Total qualified hold {hold:g} h "
+                f"versus estimated total journey {eta:g} h: "
+                f"margin {hold - eta:g} h. "
+                "No core temperature is measured."
+            ),
         )
 
-    if transport_scores:
-        strongest_field = max(
-            transport_scores,
-            key=transport_scores.get,
-        )
-        indicators.append({
-            "category": "Transport delay",
-            "feature": strongest_field,
-            "severity": transport_scores[strongest_field],
-            "description": (
-                f"Elapsed/planned-time ratio {elapsed_ratio:.2f}, "
-                f"carrier reliability {reliability:.2f}, "
-                f"corridor risk {geopolitical:.1f}/10 "
-                "indicate an operational review; "
-                "no actual delay cause is verified."
-            ),
-        })
+    reliability = (
+        shipment["Carrier_Reliability_Score"]
+    )
+    corridor = (
+        shipment["Geopolitical_Risk"]
+    )
+    scores = {}
 
-    if (
-        shipment["Transport_Mode"] == "Multi-Modal Air-to-Land"
-        and (reliability < 0.75 or buffer < 6.0)
-    ):
-        indicators.append({
-            "category": "Handover delay",
-            "feature": "Transport_Mode",
-            "severity": max(
-                1.0 - reliability,
-                max(0.0, (6.0 - buffer) / 6.0),
+    if eta > deadline or eta > plan:
+        scores["Transit_Duration"] = max(
+            (eta - deadline)
+            / max(deadline, .5),
+            (eta - plan)
+            / max(plan, .5),
+        )
+
+    if reliability < .65:
+        scores["Carrier_Reliability_Score"] = (
+            1 - reliability
+        )
+
+    if corridor >= 6:
+        scores["Geopolitical_Risk"] = (
+            corridor / 10
+        )
+
+    if scores:
+        field = max(
+            scores, key=scores.get
+        )
+
+        add(
+            "Transport delay",
+            field,
+            scores[field],
+            (
+                f"Estimated total journey {eta:g} h; "
+                f"planned {plan:g} h; "
+                f"deadline {deadline:g} h; "
+                f"known ETA-plan difference {eta - plan:g} h. "
+                f"Carrier {reliability:g}, "
+                f"corridor {corridor:g}/10 "
+                "are review indicators."
             ),
-            "description": (
-                "Multi-modal routing with reliability below 0.75 "
-                "or packaging buffer below 6 h "
-                "calls for handover review; "
-                "actual dwell time is unavailable."
+        )
+
+    handovers = (
+        shipment["Handover_Count"]
+    )
+
+    if handovers >= 3:
+        add(
+            "Handover delay",
+            "Handover_Count",
+            handovers / 6,
+            (
+                f"{handovers:g} planned handovers "
+                "increase handling exposure; "
+                "actual dwell time and delay cause are unknown."
             ),
-        })
+        )
 
     return sorted(
         indicators,
-        key=lambda indicator: indicator["severity"],
+        key=lambda item: item["severity"],
         reverse=True,
     )
 
@@ -108,9 +120,13 @@ def _domain_indicators(shipment: dict) -> list[dict]:
 def explain_prediction(
     shipment_data,
     model=None,
-) -> dict:
-    shipment = _clean_shipment(shipment_data)
-    indicators = _domain_indicators(shipment)
+):
+    shipment = _clean_shipment(
+        shipment_data
+    )
+    indicators = _domain_indicators(
+        shipment
+    )
 
     category = (
         "Combined risk"
@@ -122,26 +138,30 @@ def explain_prediction(
 
     result = {
         "category": category,
+        "domain_indicators": indicators,
         "category_method": (
-            "Heuristic operational indicators, "
+            "Heuristic operational indicators; "
             "not verified causal diagnosis"
         ),
-        "domain_indicators": indicators,
         "note": (
-            "Packaging hold time and planned deadlines "
-            "are scenario proxies. No temperature measurement, "
-            "prediction horizon or failure cause is inferred."
+            "ETA is estimated total journey time; "
+            "buffer is total qualified packaging capacity. "
+            "No elapsed time, live countdown or measured "
+            "temperature is inferred."
         ),
     }
 
     if model is None:
-        result.update({
-            "method": (
+        return dict(
+            result,
+            method=(
                 "Heuristic domain indicators "
                 "(no model supplied)"
             ),
-            "contribution_unit": "heuristic severity score",
-            "drivers": [
+            contribution_unit=(
+                "heuristic severity score"
+            ),
+            drivers=[
                 {
                     "feature": item["feature"],
                     "description": item["description"],
@@ -149,96 +169,90 @@ def explain_prediction(
                 }
                 for item in indicators[:3]
             ],
-        })
-        return result
-
-    deadline = shipment["Lead-Time in days"] * 24.0
-    remaining = max(
-        deadline - shipment["Transit_Duration"], 0.0
-    )
+        )
 
     candidates = [
         (
             "Buffer_of_Package",
             max(
                 shipment["Buffer_of_Package"],
-                remaining + 6.0,
-                6.0,
+                shipment["Transit_Duration"] + 6,
             ),
         ),
         (
             "Carrier_Reliability_Score",
             max(
                 shipment["Carrier_Reliability_Score"],
-                0.95,
+                .95,
             ),
         ),
         (
             "Geopolitical_Risk",
-            min(shipment["Geopolitical_Risk"], 2.0),
-        ),
-        (
-            "Transit_Duration",
             min(
-                shipment["Transit_Duration"],
-                deadline * 0.5,
+                shipment["Geopolitical_Risk"],
+                2,
             ),
         ),
         (
-            "Fuel_Price_Index",
-            min(shipment["Fuel_Price_Index"], 1.0),
+            "Transit_Duration",
+            shipment["Planned_Transit_Hours"],
         ),
-        ("Transport_Mode", "Air"),
+        (
+            "Handover_Count",
+            min(
+                shipment["Handover_Count"],
+                2,
+            ),
+        ),
     ]
 
-    baseline_probability = _predict_one(shipment, model)
+    baseline = _predict_one(
+        shipment, model
+    )
     drivers = []
 
-    for field, reference_value in candidates:
-        if shipment[field] == reference_value:
+    for field, reference in candidates:
+        if shipment[field] == reference:
             continue
 
-        counterfactual = dict(shipment)
-        counterfactual[field] = reference_value
-        counterfactual_probability = _predict_one(
-            counterfactual, model
-        )
-        contribution = (
-            baseline_probability - counterfactual_probability
+        comparison = dict(shipment)
+        comparison[field] = reference
+
+        probability = _predict_one(
+            comparison, model
         )
 
         drivers.append({
             "feature": field,
-            "description": (
-                f"One-field sensitivity: {field} "
-                f"{shipment[field]!s} → {reference_value!s}; "
-                "modeled failure probability "
-                f"{baseline_probability:.1%} → "
-                f"{counterfactual_probability:.1%}. "
-                "An assumed comparison, not a proven cause "
-                "or real-world intervention."
-            ),
-            "contribution": contribution,
             "original_value": shipment[field],
-            "reference_value": reference_value,
-            "counterfactual_probability": (
-                counterfactual_probability
+            "reference_value": reference,
+            "counterfactual_probability": probability,
+            "contribution": baseline - probability,
+            "description": (
+                f"Assumed one-field comparison: {field} "
+                f"{shipment[field]} → {reference}; "
+                f"modeled probability {baseline:.1%} "
+                f"→ {probability:.1%}. "
+                "Not a proven cause or intervention effect."
             ),
         })
 
     drivers.sort(
-        key=lambda driver: abs(driver["contribution"]),
+        key=lambda item: abs(
+            item["contribution"]
+        ),
         reverse=True,
     )
 
-    result.update({
-        "method": (
+    return dict(
+        result,
+        method=(
             "One-at-a-time model sensitivity "
-            "(explicit scenario references; not SHAP)"
+            "(explicit references; not SHAP)"
         ),
-        "contribution_unit": "probability difference",
-        "baseline_probability": baseline_probability,
-        "drivers": drivers[:3],
-    })
-
-    return result
+        contribution_unit=(
+            "probability difference"
+        ),
+        baseline_probability=baseline,
+        drivers=drivers[:3],
+    )

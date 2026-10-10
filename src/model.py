@@ -1,4 +1,4 @@
-#predict failure probability 
+"""Train models with separate training CV and held-out evaluation."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 from typing import Any
 
@@ -24,12 +25,13 @@ from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score,
+    classification_report,
     confusion_matrix,
     f1_score,
+    make_scorer,
     precision_score,
     recall_score,
     roc_auc_score,
-    make_scorer,
 )
 from sklearn.model_selection import (
     StratifiedGroupKFold,
@@ -45,11 +47,17 @@ from sklearn.preprocessing import (
 from .features import extract_features
 from .preprocessing import clean_raw_shipment_data
 from .schema import (
+    FEATURE_SCHEMA_VERSION,
     MODEL_CATEGORICAL_COLUMNS,
     MODEL_FEATURE_COLUMNS,
     MODEL_NUMERIC_COLUMNS,
+    STORAGE_STANDARDS,
     TARGET_COLUMN,
+    TRANSPORT_MODES,
 )
+
+
+ARTIFACT_FORMAT_VERSION = 2
 
 
 @dataclass
@@ -65,7 +73,7 @@ def risk_level(probability: float) -> str:
         probability = float(probability)
     except (TypeError, ValueError) as exc:
         raise ValueError(
-            "Risk probability must be a number between 0 and 1."
+            "Risk probability must be a number from 0 to 1."
         ) from exc
 
     if (
@@ -73,32 +81,25 @@ def risk_level(probability: float) -> str:
         or not 0 <= probability <= 1
     ):
         raise ValueError(
-            "Risk probability must be a finite number "
-            "between 0 and 1."
+            "Risk probability must be finite and from 0 to 1."
         )
 
-    if probability <= 0.3:
+    if probability <= .3:
         return "Low"
-    if probability <= 0.6:
+    if probability <= .6:
         return "Medium"
-    if probability <= 0.8:
+    if probability <= .8:
         return "High"
     return "Critical"
 
 
-def _checked_features(
-    features: pd.DataFrame,
-) -> pd.DataFrame:
-    if not isinstance(features, pd.DataFrame):
+def _checked_features(features: pd.DataFrame) -> pd.DataFrame:
+    if (
+        not isinstance(features, pd.DataFrame)
+        or features.columns.duplicated().any()
+    ):
         raise ValueError(
-            "Model inputs must be a pandas DataFrame "
-            "of engineered features."
-        )
-
-    if features.columns.duplicated().any():
-        raise ValueError(
-            "Model inputs contain duplicate column names; "
-            "rename them first."
+            "Supply a feature DataFrame with unique column names."
         )
 
     missing = [
@@ -106,35 +107,58 @@ def _checked_features(
         for column in MODEL_FEATURE_COLUMNS
         if column not in features
     ]
+
     if missing:
         raise ValueError(
-            "Missing model features: "
-            + ", ".join(missing)
-            + ". Run extract_features first."
+            f"Missing model features: {missing}. "
+            "Run extract_features first."
         )
 
-    result = features.loc[:, MODEL_FEATURE_COLUMNS].copy()
+    result = features.loc[
+        :, MODEL_FEATURE_COLUMNS
+    ].copy()
 
     for column in MODEL_NUMERIC_COLUMNS:
         try:
             result[column] = pd.to_numeric(
-                result[column], errors="raise"
+                result[column],
+                errors="raise",
             ).astype(float)
         except (TypeError, ValueError) as exc:
             raise ValueError(
-                f"Model feature {column!r} "
-                "must contain numeric values."
+                f"Feature {column!r} must be numeric."
             ) from exc
 
-        if np.isinf(result[column].to_numpy()).any():
+        if np.isinf(
+            result[column].to_numpy()
+        ).any():
             raise ValueError(
-                f"Model feature {column!r} contains infinity; "
-                "correct the input."
+                f"Feature {column!r} contains infinity; "
+                "check input units."
             )
 
-    for column in MODEL_CATEGORICAL_COLUMNS:
-        result[column] = result[column].where(
-            result[column].notna(), np.nan
+    for column, allowed in zip(
+        MODEL_CATEGORICAL_COLUMNS,
+        [TRANSPORT_MODES, STORAGE_STANDARDS],
+    ):
+        invalid = (
+            result[column].notna()
+            & ~result[column].isin(allowed)
+        )
+
+        if invalid.any():
+            raise ValueError(
+                f"Feature {column!r} must use "
+                f"a canonical category: {allowed}."
+            )
+
+        result[column] = (
+            result[column]
+            .astype(object)
+            .where(
+                result[column].notna(),
+                np.nan,
+            )
         )
 
     return result
@@ -171,7 +195,11 @@ def _preprocessor() -> ColumnTransformer:
 
     return ColumnTransformer(
         [
-            ("numeric", numeric, MODEL_NUMERIC_COLUMNS),
+            (
+                "numeric",
+                numeric,
+                MODEL_NUMERIC_COLUMNS,
+            ),
             (
                 "categorical",
                 categorical,
@@ -182,52 +210,44 @@ def _preprocessor() -> ColumnTransformer:
     )
 
 
-def _class_group_counts(
-    labels: np.ndarray,
-    groups: np.ndarray,
-) -> list[int]:
+def _class_group_counts(labels, groups):
     return [
         len(set(groups[labels == label]))
         for label in (0, 1)
     ]
 
 
-def _cv_splits(
-    labels: np.ndarray,
-    groups: np.ndarray,
-    grouped: bool,
-    random_state: int,
-) -> list[tuple[np.ndarray, np.ndarray]]:
+def _cv_splits(labels, groups, grouped, random_state):
     support = (
         _class_group_counts(labels, groups)
         if grouped
         else np.bincount(labels, minlength=2)
     )
-    max_folds = min(5, int(min(support)))
 
-    for folds in range(max_folds, 1, -1):
-        if grouped:
-            splitter = StratifiedGroupKFold(
-                n_splits=folds,
-                shuffle=True,
-                random_state=random_state,
+    for folds in range(
+        min(5, int(min(support))),
+        1,
+        -1,
+    ):
+        splitter_class = (
+            StratifiedGroupKFold
+            if grouped
+            else StratifiedKFold
+        )
+
+        splitter = splitter_class(
+            n_splits=folds,
+            shuffle=True,
+            random_state=random_state,
+        )
+
+        splits = list(
+            splitter.split(
+                np.zeros(len(labels)),
+                labels,
+                groups if grouped else None,
             )
-            splits = list(
-                splitter.split(
-                    np.zeros(len(labels)), labels, groups
-                )
-            )
-        else:
-            splitter = StratifiedKFold(
-                n_splits=folds,
-                shuffle=True,
-                random_state=random_state,
-            )
-            splits = list(
-                splitter.split(
-                    np.zeros(len(labels)), labels
-                )
-            )
+        )
 
         if all(
             len(np.unique(labels[train])) == 2
@@ -237,52 +257,53 @@ def _cv_splits(
             return splits
 
     raise ValueError(
-        "Cannot form training cross-validation folds "
-        "with both outcomes. Provide more independent shipments "
-        "with failure and non-failure labels; "
+        "Cannot form CV with both outcomes. "
+        "Add independent labeled shipments; "
         "do not duplicate rows."
     )
 
 
-def _split_data(
-    labels: np.ndarray,
-    groups: np.ndarray,
-    random_state: int,
-) -> tuple[
-    np.ndarray,
-    np.ndarray,
-    list[tuple[np.ndarray, np.ndarray]],
-    bool,
-]:
-    grouped = len(set(groups)) < len(groups)
-    support = _class_group_counts(labels, groups)
+def _split_data(labels, groups, random_state):
+    grouped = (
+        len(set(groups)) < len(groups)
+    )
+    support = _class_group_counts(
+        labels, groups
+    )
 
     if min(support) < 3:
         raise ValueError(
-            "Training requires at least 3 distinct Shipment_ID "
-            "groups supporting each outcome (0 and 1): "
-            "one for holdout and at least two for training CV. "
-            f"Found {support[0]} non-failure "
-            f"and {support[1]} failure groups."
+            "Need at least 3 distinct shipment groups "
+            "per outcome for holdout and CV; "
+            f"found {support}."
         )
 
     if not grouped:
-        rng = np.random.RandomState(random_state)
-        train_parts, test_parts = [], []
+        rng = np.random.RandomState(
+            random_state
+        )
+        train_parts = []
+        test_parts = []
 
         for label in (0, 1):
-            positions = np.flatnonzero(labels == label)
-            rng.shuffle(positions)
+            positions = rng.permutation(
+                np.flatnonzero(labels == label)
+            )
 
             reserved = max(
                 1,
                 min(
-                    int(np.ceil(len(positions) * 0.2)),
+                    int(np.ceil(len(positions) * .2)),
                     len(positions) - 2,
                 ),
             )
-            test_parts.append(positions[:reserved])
-            train_parts.append(positions[reserved:])
+
+            test_parts.append(
+                positions[:reserved]
+            )
+            train_parts.append(
+                positions[reserved:]
+            )
 
         train = rng.permutation(
             np.concatenate(train_parts)
@@ -305,7 +326,11 @@ def _split_data(
 
     candidates = []
 
-    for folds in range(min(5, min(support)), 1, -1):
+    for folds in range(
+        min(5, min(support)),
+        1,
+        -1,
+    ):
         splitter = StratifiedGroupKFold(
             n_splits=folds,
             shuffle=True,
@@ -313,13 +338,16 @@ def _split_data(
         )
 
         for train, test in splitter.split(
-            np.zeros(len(labels)), labels, groups
+            np.zeros(len(labels)),
+            labels,
+            groups,
         ):
             if (
                 len(np.unique(labels[test])) != 2
                 or min(
                     _class_group_counts(
-                        labels[train], groups[train]
+                        labels[train],
+                        groups[train],
                     )
                 ) < 2
             ):
@@ -336,60 +364,125 @@ def _split_data(
                 continue
 
             rank = (
-                abs(len(test) / len(labels) - 0.2),
+                abs(len(test) / len(labels) - .2),
                 abs(
-                    float(labels[test].mean())
-                    - float(labels.mean())
+                    labels[test].mean()
+                    - labels.mean()
                 ),
             )
-            candidates.append((rank, train, test, cv))
+
+            candidates.append(
+                (rank, train, test, cv)
+            )
 
     if not candidates:
         raise ValueError(
-            "Repeated Shipment_ID rows cannot be split into "
-            "a grouped holdout and training CV with both outcomes. "
-            "Add more independent labeled shipments or review "
-            "duplicate identifiers. All rows of one shipment "
-            "must stay together."
+            "Repeated IDs cannot form grouped holdout "
+            "and CV with both outcomes. "
+            "Add independent shipments."
         )
 
     _, train, test, cv = min(
-        candidates, key=lambda item: item[0]
+        candidates,
+        key=lambda item: item[0],
     )
+
     return train, test, cv, True
 
 
-def _fingerprint(
-    features: pd.DataFrame,
-    labels: np.ndarray,
-    groups: np.ndarray,
-) -> str:
-    rows = features.copy()
-    rows["Shipment_ID"] = groups
-    rows[TARGET_COLUMN] = labels
+def _provenance(clean, data_source):
+    marked = (
+        clean["Shipment_ID"]
+        .astype(str)
+        .str.upper()
+        .str.startswith("SYNTHETIC-")
+        .to_numpy()
+    )
+
+    if "Data_Source" in clean:
+        marked = marked | (
+            clean["Data_Source"]
+            .astype(str)
+            .str.contains(
+                r"synthetic|simulat",
+                case=False,
+                na=False,
+            )
+            .to_numpy()
+        )
+
+    if marked.any() and not marked.all():
+        raise ValueError(
+            "Synthetic and unmarked rows are mixed. "
+            "Keep simulated and real outcome datasets separate."
+        )
+
+    synthetic = (
+        bool(marked.any())
+        or bool(
+            re.search(
+                r"\b(synthetic|simulated|simulation|demo)\b",
+                data_source,
+                re.I,
+            )
+        )
+    )
+
+    label = (
+        data_source
+        if (
+            not synthetic
+            or re.search(
+                r"\bsynthetic\b",
+                data_source,
+                re.I,
+            )
+        )
+        else f"synthetic data from {data_source}"
+    )
+
+    return synthetic, label
+
+
+def _fingerprint(features, labels, groups):
+    rows = features.assign(
+        Shipment_ID=groups,
+        **{TARGET_COLUMN: labels},
+    )
 
     digest = hashlib.sha256(
-        json.dumps(list(rows.columns)).encode("utf-8")
+        json.dumps(
+            [
+                FEATURE_SCHEMA_VERSION,
+                *rows.columns,
+            ]
+        ).encode()
     )
+
     digest.update(
         pd.util.hash_pandas_object(
-            rows, index=False
+            rows,
+            index=False,
         ).to_numpy().tobytes()
     )
+
     return digest.hexdigest()
 
 
 def train_model(
-    df: pd.DataFrame,
-    target: str = TARGET_COLUMN,
-    data_source: str = "user dataset",
-    model_path: str | Path | None = None,
-    random_state: int = 42,
-) -> ModelBundle:
-    if not isinstance(df, pd.DataFrame) or df.empty:
+    df,
+    target=TARGET_COLUMN,
+    data_source="user dataset",
+    model_path=None,
+    random_state=42,
+):
+    if (
+        not isinstance(df, pd.DataFrame)
+        or df.empty
+    ):
         raise ValueError(
-            "Training needs a non-empty shipment DataFrame "
-            "with observed binary labels."
+            "Training needs a nonempty shipment DataFrame "
+            "with binary outcome labels."
         )
 
     if (
@@ -397,8 +490,7 @@ def train_model(
         or not data_source.strip()
     ):
         raise ValueError(
-            "Provide a data_source description "
-            "for model provenance."
+            "Supply a data_source description for provenance."
         )
 
     source = df.copy()
@@ -406,85 +498,47 @@ def train_model(
     if target != TARGET_COLUMN:
         if target not in source:
             raise ValueError(
-                f"Target column {target!r} is missing. "
-                "Set --target or map the label column."
+                f"Target {target!r} is missing. "
+                "Map the outcome column or set target."
             )
+
         source[TARGET_COLUMN] = source[target]
-        source = source.drop(columns=[target])
+        source = source.drop(
+            columns=[target]
+        )
 
     clean = clean_raw_shipment_data(
-        source, require_target=True
+        source,
+        require_target=True,
     )
-    features = _checked_features(extract_features(clean))
 
-    try:
-        numeric_labels = pd.to_numeric(
-            clean[TARGET_COLUMN], errors="raise"
-        )
-    except (TypeError, ValueError) as exc:
-        raise ValueError(
-            "Observed target labels must be binary 0/1 values."
-        ) from exc
+    features = _checked_features(
+        extract_features(clean)
+    )
 
-    if (
-        numeric_labels.isna().any()
-        or not numeric_labels.isin([0, 1]).all()
-    ):
-        raise ValueError(
-            "Observed target labels must contain only 0 and 1, "
-            "with no missing labels."
-        )
+    labels = clean[
+        TARGET_COLUMN
+    ].to_numpy(dtype=int)
 
-    labels = numeric_labels.to_numpy(dtype=int)
     if set(labels) != {0, 1}:
         raise ValueError(
-            "Training requires both observed outcomes: "
+            "Training requires both outcome classes: "
             "non-failure (0) and failure (1)."
         )
 
-    groups = clean["Shipment_ID"].astype(str).to_numpy()
+    groups = clean[
+        "Shipment_ID"
+    ].astype(str).to_numpy()
 
-    synthetic_rows = (
-        clean["Shipment_ID"]
-        .astype(str)
-        .str.upper()
-        .str.startswith("SYNTHETIC-")
-        .to_numpy()
+    synthetic, source_label = _provenance(
+        clean, data_source
     )
-    if "Data_Source" in clean.columns:
-        synthetic_rows = synthetic_rows | (
-            clean["Data_Source"]
-            .astype(str)
-            .str.contains(
-                "synthetic", case=False, na=False
-            )
-            .to_numpy()
-        )
-
-    if synthetic_rows.any() and not synthetic_rows.all():
-        raise ValueError(
-            "Synthetic and unmarked shipment rows are mixed. "
-            "Train demo and real datasets separately; "
-            "synthetic outcomes must not enter reported "
-            "real-data metrics."
-        )
-
-    synthetic = (
-        bool(synthetic_rows.any())
-        or "synthetic" in data_source.lower()
-        or data_source.strip().lower() == "demo"
-    )
-    source_label = data_source
-    if synthetic and "synthetic" not in data_source.lower():
-        source_label = (
-            f"synthetic demonstration data from {data_source}"
-        )
 
     train, test, cv, grouped = _split_data(
-        labels, groups, random_state
+        labels,
+        groups,
+        random_state,
     )
-    train_features = features.iloc[train]
-    train_labels = labels[train]
 
     candidates = {
         "Logistic Regression": LogisticRegression(
@@ -510,95 +564,140 @@ def train_model(
     scoring = {
         "roc_auc": "roc_auc",
         "precision": make_scorer(
-            precision_score, zero_division=0
+            precision_score,
+            zero_division=0,
         ),
         "recall": make_scorer(
-            recall_score, zero_division=0
+            recall_score,
+            zero_division=0,
         ),
-        "f1": make_scorer(f1_score, zero_division=0),
+        "f1": make_scorer(
+            f1_score,
+            zero_division=0,
+        ),
     }
 
-    comparisons, pipelines = [], {}
+    comparisons = []
+    pipelines = {}
 
     for name, estimator in candidates.items():
         pipeline = Pipeline([
-            ("preprocessor", _preprocessor()),
-            ("classifier", estimator),
+            (
+                "preprocessor",
+                _preprocessor(),
+            ),
+            (
+                "classifier",
+                estimator,
+            ),
         ])
 
         scores = cross_validate(
             pipeline,
-            train_features,
-            train_labels,
+            features.iloc[train],
+            labels[train],
             cv=cv,
             scoring=scoring,
             n_jobs=1,
             error_score="raise",
         )
 
-        comparison = {
+        row = {
             "model": name,
             "model_name": name,
+            "cv_roc_auc_std": float(
+                np.std(
+                    scores["test_roc_auc"]
+                )
+            ),
         }
 
-        for metric in scoring:
-            comparison[f"cv_{metric}"] = float(
-                np.mean(scores[f"test_{metric}"])
+        row.update({
+            f"cv_{metric}": float(
+                np.mean(
+                    scores[f"test_{metric}"]
+                )
             )
+            for metric in scoring
+        })
 
-        comparison["cv_roc_auc_std"] = float(
-            np.std(scores["test_roc_auc"])
-        )
-        comparisons.append(comparison)
+        comparisons.append(row)
         pipelines[name] = pipeline
 
     selected = max(
         comparisons,
         key=lambda row: (
-            row["cv_roc_auc"], row["cv_f1"]
+            row["cv_roc_auc"],
+            row["cv_f1"],
         ),
     )
 
-    pipeline = pipelines[selected["model"]]
-    pipeline.fit(train_features, train_labels)
+    pipeline = pipelines[
+        selected["model"]
+    ].fit(
+        features.iloc[train],
+        labels[train],
+    )
 
-    class_position = list(pipeline.classes_).index(1)
     probabilities = pipeline.predict_proba(
         features.iloc[test]
-    )[:, class_position]
-    predicted = (probabilities >= 0.5).astype(int)
-    heldout_labels = labels[test]
+    )[
+        :,
+        list(pipeline.classes_).index(1),
+    ]
+
+    predicted = (
+        probabilities >= .5
+    ).astype(int)
+
+    actual = labels[test]
 
     metrics = {
-        "precision": float(
-            precision_score(
-                heldout_labels, predicted, zero_division=0
+        name: float(
+            metric(
+                actual,
+                predicted,
+                zero_division=0,
             )
-        ),
-        "recall": float(
-            recall_score(
-                heldout_labels, predicted, zero_division=0
-            )
-        ),
-        "f1": float(
-            f1_score(
-                heldout_labels, predicted, zero_division=0
-            )
-        ),
-        "roc_auc": float(
-            roc_auc_score(heldout_labels, probabilities)
-        ),
-        "accuracy": float(
-            accuracy_score(heldout_labels, predicted)
-        ),
-        "confusion_matrix": confusion_matrix(
-            heldout_labels, predicted, labels=[0, 1]
-        ).tolist(),
-        "n_test": int(len(test)),
+        )
+        for name, metric in [
+            ("precision", precision_score),
+            ("recall", recall_score),
+            ("f1", f1_score),
+        ]
     }
 
+    metrics.update(
+        roc_auc=float(
+            roc_auc_score(
+                actual,
+                probabilities,
+            )
+        ),
+        accuracy=float(
+            accuracy_score(
+                actual,
+                predicted,
+            )
+        ),
+        confusion_matrix=confusion_matrix(
+            actual,
+            predicted,
+            labels=[0, 1],
+        ).tolist(),
+        n_test=int(len(test)),
+        classification_report=classification_report(
+            actual,
+            predicted,
+            labels=[0, 1],
+            output_dict=True,
+            zero_division=0,
+        ),
+    )
+
     metadata = {
-        "artifact_format_version": 1,
+        "artifact_format_version": ARTIFACT_FORMAT_VERSION,
+        "feature_schema_version": FEATURE_SCHEMA_VERSION,
         "model_name": selected["model"],
         "model_source": source_label,
         "data_source": source_label,
@@ -607,20 +706,24 @@ def train_model(
         "label_source": (
             "synthetic labels (demonstration only)"
             if synthetic
-            else f"user-supplied observed labels: {target}"
+            else "user-supplied outcome labels; provenance unverified"
         ),
         "target_column": target,
         "features": list(MODEL_FEATURE_COLUMNS),
-        "n_rows": int(len(features)),
-        "n_train": int(len(train)),
-        "n_test": int(len(test)),
-        "train_rows": int(len(train)),
-        "selection_rows": int(len(train)),
-        "holdout_rows": int(len(test)),
+        "n_rows": len(features),
+        "n_train": len(train),
+        "n_test": len(test),
+        "train_rows": len(train),
+        "selection_rows": len(train),
+        "holdout_rows": len(test),
         "train_positions": train.tolist(),
         "test_positions": test.tolist(),
-        "train_group_count": int(len(set(groups[train]))),
-        "test_group_count": int(len(set(groups[test]))),
+        "train_group_count": len(
+            set(groups[train])
+        ),
+        "test_group_count": len(
+            set(groups[test])
+        ),
         "split_method": (
             "stratified grouped holdout"
             if grouped
@@ -631,23 +734,25 @@ def train_model(
             if grouped
             else "StratifiedKFold"
         ),
-        "cv_folds": int(len(cv)),
+        "cv_folds": len(cv),
         "selection_metric": "roc_auc",
-        "decision_threshold": 0.5,
-        "holdout_fraction": float(
+        "decision_threshold": .5,
+        "holdout_fraction": (
             len(test) / len(features)
         ),
         "calibrated": False,
         "calibration_note": (
             "Probability calibration has not been assessed; "
-            "these are classifier scores."
+            "outputs are classifier scores."
         ),
         "prediction_horizon": (
             "Not established; requires appropriately timed "
-            "real observed labels."
+            "real outcome labels."
         ),
         "dataset_fingerprint": _fingerprint(
-            features, labels, groups
+            features,
+            labels,
+            groups,
         ),
         "sklearn_version": sklearn.__version__,
         "random_state": int(random_state),
@@ -657,7 +762,10 @@ def train_model(
     }
 
     bundle = ModelBundle(
-        pipeline, metadata, metrics, comparisons
+        pipeline,
+        metadata,
+        metrics,
+        comparisons,
     )
 
     if model_path is not None:
@@ -666,50 +774,72 @@ def train_model(
     return bundle
 
 
-def predict_failure_risk(
-    features_df: pd.DataFrame,
-    model: ModelBundle,
-) -> pd.DataFrame:
+def _validate_bundle(bundle):
     if (
-        not isinstance(model, ModelBundle)
-        or not hasattr(model.pipeline, "predict_proba")
-        or not isinstance(model.metadata, dict)
+        not isinstance(bundle, ModelBundle)
+        or not isinstance(bundle.pipeline, Pipeline)
+        or not isinstance(bundle.metadata, dict)
+        or not isinstance(bundle.metrics, dict)
+        or not isinstance(bundle.comparisons, list)
     ):
         raise ValueError(
-            "A trained Aura ModelBundle is required. "
-            "Train or load a trusted local model first."
+            "A valid trained Aura ModelBundle is required; "
+            "train or load a trusted local model."
         )
 
-    if model.metadata.get("features") != MODEL_FEATURE_COLUMNS:
+    expected = {
+        "artifact_format_version": ARTIFACT_FORMAT_VERSION,
+        "feature_schema_version": FEATURE_SCHEMA_VERSION,
+        "features": MODEL_FEATURE_COLUMNS,
+        "sklearn_version": sklearn.__version__,
+    }
+
+    if any(
+        bundle.metadata.get(key) != value
+        for key, value in expected.items()
+    ):
         raise ValueError(
-            "Model feature schema differs from this project. "
-            "Retrain the model with current code."
+            "Model schema, formula contract, artifact format "
+            "or sklearn version changed. Retrain this artifact."
         )
 
-    features = _checked_features(features_df)
+    if (
+        not bundle.metadata.get("data_source")
+        or not bundle.metadata.get("model_source")
+        or not hasattr(
+            bundle.pipeline, "classes_"
+        )
+        or set(
+            bundle.pipeline.classes_
+        ) != {0, 1}
+    ):
+        raise ValueError(
+            "Model lacks fitted binary classes "
+            "or provenance. Retrain it."
+        )
 
-    if features.empty:
-        return pd.DataFrame({
-            "p_failure": pd.Series(
-                index=features.index, dtype=float
-            ),
-            "risk_level": pd.Series(
-                index=features.index, dtype=str
-            ),
-            "model_source": pd.Series(
-                index=features.index, dtype=str
-            ),
-        })
+
+def predict_failure_risk(features_df, model):
+    _validate_bundle(model)
+
+    features = _checked_features(
+        features_df
+    )
 
     try:
-        class_position = list(
-            model.pipeline.classes_
-        ).index(1)
-        probabilities = np.asarray(
-            model.pipeline.predict_proba(features)[
-                :, class_position
-            ],
-            dtype=float,
+        probabilities = (
+            model.pipeline.predict_proba(
+                features
+            )[
+                :,
+                list(
+                    model.pipeline.classes_
+                ).index(1),
+            ]
+            if len(features)
+            else np.array(
+                [], dtype=float
+            )
         )
     except (
         AttributeError,
@@ -718,8 +848,8 @@ def predict_failure_risk(
         ValueError,
     ) as exc:
         raise ValueError(
-            "The model cannot predict these inputs. "
-            "Check feature values or retrain the artifact."
+            "Cannot predict these inputs. "
+            "Check feature values or retrain the model."
         ) from exc
 
     if (
@@ -730,138 +860,96 @@ def predict_failure_risk(
         ).any()
     ):
         raise ValueError(
-            "The model produced invalid probabilities; "
-            "retrain the artifact."
+            "Model returned invalid probabilities; "
+            "retrain it."
         )
 
-    probabilities = np.clip(probabilities, 0, 1)
+    probabilities = np.clip(
+        probabilities, 0, 1
+    )
 
     return pd.DataFrame(
         {
             "p_failure": probabilities,
             "risk_level": [
-                risk_level(p) for p in probabilities
+                risk_level(probability)
+                for probability in probabilities
             ],
-            "model_source": model.metadata.get(
-                "model_source",
-                model.metadata.get("data_source", "unknown"),
+            "model_source": (
+                model.metadata["model_source"]
             ),
         },
         index=features.index,
     )
 
 
-def _local_artifact_path(path: str | Path) -> Path:
-    if "://" in str(path):
+def _local_artifact_path(path):
+    if (
+        "://" in str(path)
+        or Path(path).suffix.lower()
+        not in {".pkl", ".joblib"}
+    ):
         raise ValueError(
-            "Use a trusted local model path; "
-            "remote artifacts are not loaded."
+            "Use a trusted local .pkl or .joblib artifact path; "
+            "never an uploaded pickle."
         )
 
-    destination = Path(path).expanduser()
-    if destination.suffix.lower() not in {".pkl", ".joblib"}:
-        raise ValueError(
-            "Model artifacts must have a .pkl "
-            "or .joblib extension."
-        )
-    return destination
+    return Path(path).expanduser()
 
 
-def save_model(
-    bundle: ModelBundle,
-    path: str | Path,
-) -> None:
-    if not isinstance(bundle, ModelBundle):
-        raise ValueError(
-            "save_model requires a trained ModelBundle."
-        )
+def save_model(bundle, path):
+    _validate_bundle(bundle)
 
-    destination = _local_artifact_path(path)
-    destination.parent.mkdir(
-        parents=True, exist_ok=True
+    destination = _local_artifact_path(
+        path
     )
-    temporary_path = None
+    destination.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    with tempfile.NamedTemporaryFile(
+        dir=destination.parent,
+        suffix=".pkl",
+        delete=False,
+    ) as handle:
+        temporary = Path(handle.name)
 
     try:
-        with tempfile.NamedTemporaryFile(
-            dir=destination.parent,
-            suffix=".pkl",
-            delete=False,
-        ) as temporary:
-            temporary_path = Path(temporary.name)
-
-        joblib.dump(bundle, temporary_path, compress=3)
-        os.replace(temporary_path, destination)
+        joblib.dump(
+            bundle,
+            temporary,
+            compress=3,
+        )
+        os.replace(
+            temporary, destination
+        )
     finally:
-        if (
-            temporary_path is not None
-            and temporary_path.exists()
-        ):
-            temporary_path.unlink()
+        if temporary.exists():
+            temporary.unlink()
 
 
-def load_model(path: str | Path) -> ModelBundle:
-    artifact = _local_artifact_path(path)
+def load_model(path):
+    """Load only trusted local project artifacts."""
+    artifact = _local_artifact_path(
+        path
+    )
 
     if not artifact.is_file():
         raise FileNotFoundError(
-            f"Model artifact not found: {artifact}. "
-            "Run scripts/train.py first."
+            f"Model artifact missing: {artifact}. "
+            "Train a new model first."
         )
 
     try:
-        bundle = joblib.load(artifact)
+        bundle = joblib.load(
+            artifact
+        )
     except Exception as exc:
         raise ValueError(
-            f"Cannot load model artifact {artifact}. "
-            "Retrain it using the current environment."
+            f"Cannot load {artifact}; "
+            "retrain with this environment."
         ) from exc
 
-    if (
-        not isinstance(bundle, ModelBundle)
-        or not isinstance(bundle.pipeline, Pipeline)
-    ):
-        raise ValueError(
-            "Artifact is not an Aura ModelBundle. "
-            "Train a new model with scripts/train.py."
-        )
-
-    if (
-        not isinstance(bundle.metadata, dict)
-        or not isinstance(bundle.metrics, dict)
-        or not isinstance(bundle.comparisons, list)
-    ):
-        raise ValueError(
-            "Artifact metadata is invalid. "
-            "Retrain using scripts/train.py."
-        )
-
-    if (
-        bundle.metadata.get("features")
-        != MODEL_FEATURE_COLUMNS
-    ):
-        raise ValueError(
-            "Artifact uses a different feature schema. "
-            "Retrain with the current project."
-        )
-
-    if (
-        bundle.metadata.get("sklearn_version")
-        != sklearn.__version__
-    ):
-        raise ValueError(
-            "Artifact was trained with a different "
-            "scikit-learn version. "
-            "Retrain in this environment."
-        )
-
-    if (
-        not bundle.metadata.get("data_source")
-        or not hasattr(bundle.pipeline, "classes_")
-    ):
-        raise ValueError(
-            "Artifact lacks fitted state or provenance. "
-            "Retrain using scripts/train.py."
-        )
-
+    _validate_bundle(bundle)
     return bundle
