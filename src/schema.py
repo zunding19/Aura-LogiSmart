@@ -1,5 +1,9 @@
 #defines share vocabulary
-SHIPMENT_COLUMNS = [
+FEATURE_SCHEMA_VERSION = "aura-eta-v1"
+DATASET_VERSION = "aura-simulation-v1"
+TARGET_COLUMN = "Shipment_Failure"
+
+RAW_INPUT_COLUMNS = [
     "Shipment_ID",
     "Place_of_Origin",
     "Place_of_Destination",
@@ -17,7 +21,18 @@ SHIPMENT_COLUMNS = [
     "Hospital_Urgency_Tier",
 ]
 
-TARGET_COLUMN = "Shipment_Failure"
+SHIPMENT_COLUMNS = RAW_INPUT_COLUMNS + [
+    "Planned_Transit_Hours",
+    "Handover_Count",
+]
+
+OUTCOME_COLUMNS = [
+    "Actual_Transit_Hours",
+    "Late_Delivery",
+    "Temperature_Excursion",
+    "Handling_Damage",
+    TARGET_COLUMN,
+]
 
 NUMERIC_COLUMNS = [
     "Distance",
@@ -29,6 +44,8 @@ NUMERIC_COLUMNS = [
     "Carrier_Reliability_Score",
     "Buffer_of_Package",
     "Cargo_Value_USD",
+    "Planned_Transit_Hours",
+    "Handover_Count",
 ]
 
 TRANSPORT_MODES = [
@@ -49,21 +66,21 @@ URGENCY_TIERS = [
     "Critical Emergency",
 ]
 
-URGENCY_WEIGHTS = dict(zip(URGENCY_TIERS, [1.0, 1.5, 2.5]))
+URGENCY_WEIGHTS = dict(
+    zip(URGENCY_TIERS, [1.0, 1.5, 2.5])
+)
 
 MODEL_NUMERIC_COLUMNS = [
-    "Distance",
-    "Lead-Time in days",
-    "Transit_Duration",
-    "Stock_Volume",
-    "Geopolitical_Risk",
-    "Fuel_Price_Index",
-    "Carrier_Reliability_Score",
-    "Buffer_of_Package",
-    "remaining_sla_hours",
-    "thermal_margin_to_deadline",
-    "elapsed_sla_ratio",
-    "buffer_to_deadline_ratio",
+    column
+    for column in NUMERIC_COLUMNS
+    if column != "Cargo_Value_USD"
+] + [
+    "known_delay_hours",
+    "deadline_margin_hours",
+    "thermal_margin_hours",
+    "eta_to_planned_ratio",
+    "eta_to_deadline_ratio",
+    "buffer_to_eta_ratio",
     "multimodal_flag",
 ]
 

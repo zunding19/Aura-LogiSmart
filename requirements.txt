@@ -1,5 +1,10 @@
-streamlit
-pandas
-numpy
-scikit-learn
-plotly
+streamlit==1.65.0
+pandas==3.0.6
+numpy==2.5.3
+scikit-learn==1.8.0
+plotly==6.3.0
+joblib==1.5.3
+ipykernel==7.4.0
+nbformat==5.10.4
+nbclient==0.10.2
+pytest==8.4.2
