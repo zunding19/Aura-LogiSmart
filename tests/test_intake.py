@@ -101,7 +101,9 @@ def test_live_risk_source_is_used_and_failures_fall_back(model):
 
     fallback = assess_order(FORM_ORDER, model, risk_provider=broken)
     assert fallback["status"] == "ok"
-    assert "Placeholder" in fallback["inferred"]["Geopolitical_Risk_Score"]
+    assert "World Bank" in fallback["inferred"]["Geopolitical_Risk_Score"]
+    # Frankfurt to Kuala Lumpur: Germany (0.208) is the less stable end.
+    assert fallback["shipment"]["Geopolitical_Risk_Score"] == 4.6
 
 
 @pytest.mark.parametrize(
@@ -188,6 +190,30 @@ def test_sea_and_rail_are_out_of_scope(model):
     assert queue.priority.is_monotonic_decreasing
     assert len(triage_queue(data, model, top=10)) == 10
     assert queue.iloc[0].Shipment_ID == "SC-12132"
+
+
+def test_route_risk_from_world_bank_index():
+    from src.intake import (
+        PLACE_COUNTRY,
+        PLACES,
+        POLITICAL_STABILITY,
+        estimate_route_risk,
+        stability_to_risk,
+    )
+
+    # Every known place has a country, and every country has a value.
+    assert set(PLACE_COUNTRY) == set(PLACES)
+    assert set(PLACE_COUNTRY.values()) <= set(POLITICAL_STABILITY)
+
+    assert stability_to_risk(2.5) == 0
+    assert stability_to_risk(0) == 5
+    assert stability_to_risk(-2.5) == 10
+    assert stability_to_risk(-9) == 10
+
+    score, source = estimate_route_risk("Singapore", "Jakarta depot")
+    assert score == stability_to_risk(POLITICAL_STABILITY["Indonesia"]) == 6.5
+    assert "Indonesia" in source
+    assert estimate_route_risk("Mars", "Venus") == (None, None)
 
 
 def test_helpers():

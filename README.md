@@ -49,7 +49,7 @@ The model also holds up when its inputs are imperfect: scores barely move with 3
 - **The model predicts disruption, not spoilage.** The data records only whether a shipment was disrupted. Thermal runway (buffer hours left against hours still to go) shows whether the cargo would survive that disruption.
 - **Cargo value, storage standard, thermal buffer and hospital urgency are simulated** by `src/build_dataset.py`. They are used for ranking and money, never as model inputs.
 - **Action fees, action effects and the cost of a disruption (10% of cargo value) are assumptions.** A real team would replace them with its own figures.
-- **Route risk** uses a placeholder table. A live source such as ACLED can be plugged in.
+- **Route risk** for a newly entered order comes from the World Bank political stability index (2025), converted to a 0 to 10 score. It is a yearly figure. A live source such as ACLED can be plugged in later.
 
 ## Run it
 

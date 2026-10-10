@@ -92,15 +92,38 @@ PLACES = {
 # Real routes are longer than a straight line; these multipliers are assumptions.
 ROUTE_FACTOR = {"Air": 1.05, "Road": 1.3, "Rail": 1.3, "Sea": 1.5}
 
-# Placeholder route risk (0 to 10) until a live source such as ACLED is connected.
-PLACEHOLDER_ROUTE_RISK = {
-    "Singapore": 1.5, "Rotterdam": 1.5, "Antwerp": 1.5, "Hamburg": 1.5,
-    "Frankfurt": 1.5, "Marseille": 2.0, "Los Angeles": 2.0, "London": 1.5,
-    "New York": 2.0, "Sydney": 1.5, "Tokyo": 1.5, "Kuala Lumpur": 2.0,
-    "Penang": 2.0, "Johor Bahru": 2.0, "Busan": 3.0, "Hong Kong": 3.0,
-    "Bangkok": 3.0, "Jakarta": 3.0, "Shanghai": 3.5, "Mumbai": 3.5,
-    "Dubai": 5.0,
+# Country of each known place, for the route risk lookup.
+PLACE_COUNTRY = {
+    "Singapore": "Singapore", "Los Angeles": "United States",
+    "New York": "United States", "Shanghai": "China",
+    "Hong Kong": "Hong Kong SAR, China", "Rotterdam": "Netherlands",
+    "Busan": "Korea, Rep.", "Hamburg": "Germany", "Frankfurt": "Germany",
+    "Dubai": "United Arab Emirates", "Antwerp": "Belgium",
+    "Marseille": "France", "Kuala Lumpur": "Malaysia", "Penang": "Malaysia",
+    "Johor Bahru": "Malaysia", "Bangkok": "Thailand", "Jakarta": "Indonesia",
+    "Tokyo": "Japan", "Mumbai": "India", "London": "United Kingdom",
+    "Sydney": "Australia",
 }
+
+# World Bank Worldwide Governance Indicators, "Political Stability and Absence
+# of Violence/Terrorism" estimate (about -2.5 unstable to +2.5 stable), 2025.
+# Fetched 2026-10-10 from
+# api.worldbank.org/v2/country/all/indicator/GOV_WGI_PV.EST?source=3
+POLITICAL_STABILITY_YEAR = 2025
+POLITICAL_STABILITY = {
+    "Singapore": 1.334, "Japan": 1.259, "Korea, Rep.": 0.917,
+    "United Arab Emirates": 0.826, "Australia": 0.781,
+    "Hong Kong SAR, China": 0.775, "Netherlands": 0.535, "Malaysia": 0.340,
+    "United Kingdom": 0.290, "Germany": 0.208, "Belgium": 0.173,
+    "China": 0.022, "France": -0.092, "United States": -0.302,
+    "Thailand": -0.560, "India": -0.608, "Indonesia": -0.739,
+}
+
+
+def stability_to_risk(estimate):
+    """Turn the -2.5..+2.5 stability estimate into a 0 to 10 risk score (10 is worst)."""
+    return round(min(max((2.5 - estimate) * 2, 0), 10), 1)
+
 
 STORAGE_BY_PRODUCT = {
     "Pharmaceuticals": "2°C to 8°C",
@@ -186,16 +209,20 @@ def estimate_route_risk(origin, destination, risk_provider=None):
         if score is not None and 0 <= score <= 10:
             return score, "Live route risk source."
 
-    scores = [
-        PLACEHOLDER_ROUTE_RISK[name]
+    countries = [
+        PLACE_COUNTRY[name]
         for name in (_place(origin), _place(destination))
-        if name in PLACEHOLDER_ROUTE_RISK
+        if name in PLACE_COUNTRY
     ]
-    if not scores:
+    if not countries:
         return None, None
-    return max(scores), (
-        "Placeholder route risk table (higher of origin and destination). "
-        "Not a live ACLED reading."
+
+    # The route is as risky as its less stable end.
+    worst = min(countries, key=POLITICAL_STABILITY.get)
+    return stability_to_risk(POLITICAL_STABILITY[worst]), (
+        f"World Bank political stability index {POLITICAL_STABILITY_YEAR} "
+        f"for {worst}, the less stable end of the route, "
+        "converted to a 0 to 10 risk score. A yearly figure, not a live feed."
     )
 
 
