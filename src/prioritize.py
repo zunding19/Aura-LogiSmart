@@ -6,7 +6,7 @@ from src.preprocessing import (
     clean_raw_shipment_data,
 )
 from src.schema import URGENCY_WEIGHTS
-
+from src.prioritize import calculate_triage_queue
 
 def calculate_triage_queue(
     shipments_df: pd.DataFrame,
