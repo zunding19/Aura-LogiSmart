@@ -1,3 +1,4 @@
+#produce operational risks categories and the top 3 model sensitives
 import math
 
 from src.preprocessing import ShipmentValidationError

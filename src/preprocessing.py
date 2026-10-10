@@ -1,3 +1,4 @@
+#validate and standardise its contents
 from __future__ import annotations
 
 import re

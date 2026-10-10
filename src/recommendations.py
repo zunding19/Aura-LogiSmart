@@ -1,3 +1,4 @@
+#suggests intervention, creates a hypothetical scenerio, reruns same model and estimates the financial benefit
 import math
 from collections.abc import Mapping
 
