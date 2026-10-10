@@ -1,4 +1,4 @@
-"""Aura web server: a JSON API over the Python backend, plus the built React app.
+"""LogiSmart web server: a JSON API over the Python backend, plus the built React app.
 
 Run with:  python server.py     (then open http://localhost:8000)
 

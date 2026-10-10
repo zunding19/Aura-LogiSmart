@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Toaster, toast } from "sonner";
 import { pct, useApi } from "./lib";
 import { ALERT_LINES, VIEW_NAME, useStore, type View } from "./store";
@@ -24,16 +24,25 @@ export default function App() {
   }, [selected, data, select]);
 
   // Notification-driven: the top alert announces itself once, with a way in.
+  // It stays quiet during a response, so it never covers the result of an action.
   const first = open[0];
+  const announced = useRef("");
   useEffect(() => {
+    if (view === "respond") {
+      toast.dismiss("top-alert");
+      return;
+    }
     if (!first) return;
+    const key = `${first.id}:${first.head}`;
+    if (announced.current === key) return;
+    announced.current = key;
     toast.error(`${first.id}: ${first.head}`, {
       id: "top-alert", // a stable id, so a re-run updates the toast and never doubles it
       description: first.route,
       duration: 8000,
       action: { label: "Respond", onClick: () => go("respond", first.id, "Detect") },
     });
-  }, [first?.id, first?.head]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [first?.id, first?.head, view]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lineIndex = ALERT_LINES.indexOf(line);
   const row = data?.line;
@@ -43,7 +52,7 @@ export default function App() {
       <aside className="side">
         <div className="brand">
           <span className="brand-mark" />
-          <span className="brand-name">aura</span>
+          <span className="brand-name">LogiSmart</span>
         </div>
         <div className="eyebrow navlabel">Operations</div>
         {OPERATIONS.map((name) => (
@@ -64,6 +73,7 @@ export default function App() {
               <output>{pct(line)}</output>
             </label>
             <input id="alert-line" type="range" min={0} max={ALERT_LINES.length - 1} step={1} value={lineIndex}
+              aria-valuetext={pct(line)}
               onChange={(e) => setLine(ALERT_LINES[Number(e.target.value)])} />
           </div>
           {row && (
@@ -79,7 +89,7 @@ export default function App() {
 
       <main className="main">
         <div className="crumbs">
-          <b>Aura</b>
+          <b>LogiSmart</b>
           <Chip tone="teal">Simulated shipments</Chip>
           <span className="sep">/</span>
           <b>{VIEW_NAME[view]}</b>
@@ -92,7 +102,7 @@ export default function App() {
           )}
         </div>
 
-        {queue.error && <Banner tone="red" title="Cannot reach Aura's server">{queue.error}</Banner>}
+        {queue.error && <Banner tone="red" title="Cannot reach LogiSmart's server">{queue.error}</Banner>}
         {!data && queue.loading && <div className="skeleton" aria-busy="true" />}
         {data && view === "map" && <MapView queue={data} coordinates={meta.data?.coordinates ?? {}} />}
         {data && view === "inbox" && <Inbox queue={data} />}

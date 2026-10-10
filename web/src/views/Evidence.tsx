@@ -5,7 +5,7 @@ import { Banner, Blocks, KV } from "../ui";
 export default function Evidence() {
   const { line, rev } = useStore();
   const { data, loading, error } = useApi(`/api/evidence?line=${line}`, rev);
-  if (error) return <Banner tone="red" title="Cannot reach Aura's server">{error}</Banner>;
+  if (error) return <Banner tone="red" title="Cannot reach LogiSmart's server">{error}</Banner>;
   if (!data) return loading ? <div className="skeleton" aria-busy="true" /> : null;
 
   const row = data.line;
@@ -34,7 +34,7 @@ export default function Evidence() {
 
   return (
     <>
-      <h1 className="title">How Aura decides, and how often it is right</h1>
+      <h1 className="title">How LogiSmart decides, and how often it is right</h1>
       <p className="subtitle">
         Every figure here comes from the trained model and 1,000 held-out simulated shipments. None of it is real
         shipment data.
@@ -78,7 +78,7 @@ export default function Evidence() {
               Against flagging every shipment, which is what a cautious team does today.
             </p>
             <div className="driver">
-              <div className="top"><span>Aura at {pct(line)}</span><span className="num">{falseAlarms}</span></div>
+              <div className="top"><span>LogiSmart at {pct(line)}</span><span className="num">{falseAlarms}</span></div>
               <div style={{ marginTop: 8 }}><Blocks share={falseAlarms / flagAll} n={40} color="var(--red)" /></div>
             </div>
             <div className="driver">
@@ -95,7 +95,7 @@ export default function Evidence() {
           <section className="panel">
             <h2 className="h2">A decision for every alert</h2>
             <p className="note" style={{ marginBottom: 16 }}>
-              Best action across the {mixTotal} test alerts at the 60% line. Aura says keep monitoring when no action pays.
+              Best action across the {mixTotal} test alerts at the 60% line. LogiSmart says keep monitoring when no action pays.
             </p>
             {mix.map((item) => (
               <div className="driver" key={item.name}>

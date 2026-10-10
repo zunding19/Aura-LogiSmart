@@ -3,7 +3,7 @@ import clsx from "clsx";
 import NumberFlow from "@number-flow/react";
 import { toast } from "sonner";
 import { CostChart } from "../charts";
-import { getJson, hours, pct, postJson, riskColor, riskLevel, SERVER_DOWN, usd, type Data } from "../lib";
+import { getJson, hours, pct, postJson, riskColor, riskFill, riskLevel, SERVER_DOWN, usd, type Data } from "../lib";
 import { useStore } from "../store";
 import { Banner, Blocks, Chip, KV, Meter, Problem, Segmented } from "../ui";
 
@@ -81,7 +81,7 @@ export default function WhatIf({ meta }: { meta: Data }) {
         })
         .catch(() => {
           if (mine !== turn.current) return;
-          setResult({ status: "Cannot reach Aura's server", reason: SERVER_DOWN });
+          setResult({ status: "Cannot reach LogiSmart's server", reason: SERVER_DOWN });
           setPending(false);
         });
     }, 350);
@@ -135,7 +135,7 @@ export default function WhatIf({ meta }: { meta: Data }) {
     <>
       <h1 className="title">What if the order changes?</h1>
       <p className="subtitle">
-        Move a control and Aura re-scores the order: risk, thermal runway, the action that pays and what each choice
+        Move a control and LogiSmart re-scores the order: risk, thermal runway, the action that pays and what each choice
         leaves at stake.
       </p>
       <div className="cols" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.5fr)" }}>
@@ -245,13 +245,13 @@ export default function WhatIf({ meta }: { meta: Data }) {
                   <h2 className="h2" style={{ marginBottom: 12 }}>Same order, five skies</h2>
                   <KV items={(result.sweep as Data[]).map((s) => ({
                     label: s.weather, labelInk: s.weather === form.weather, value: pct(s.risk), color: riskColor(s.risk),
-                    sub: <Blocks share={s.risk} color={riskColor(s.risk)} />,
+                    sub: <Blocks share={s.risk} color={riskFill(s.risk)} />,
                   }))} />
                 </section>
               )}
               {assumed.length > 0 && (
                 <>
-                  <p className="fine">What Aura assumed:</p>
+                  <p className="fine">What LogiSmart assumed:</p>
                   <ul className="fine" style={{ paddingLeft: 16, marginTop: 4 }}>
                     {assumed.map((text) => <li key={text}>{text}</li>)}
                   </ul>

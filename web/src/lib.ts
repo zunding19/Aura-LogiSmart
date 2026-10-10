@@ -21,7 +21,7 @@ export async function postJson(url: string, body: unknown): Promise<Data> {
   return response.json();
 }
 
-export const SERVER_DOWN = "Aura's server did not answer. Check that python server.py is running.";
+export const SERVER_DOWN = "LogiSmart's server did not answer. Check that python server.py is running.";
 
 /** Fetch with a small cache. Old data stays on screen while the new answer loads. */
 export function useApi(url: string | null, rev = 0) {
@@ -89,6 +89,11 @@ export function riskColor(p: number | null | undefined) {
   if (p >= 0.6) return COLOR.amber;
   if (p >= 0.3) return COLOR.soft;
   return COLOR.teal;
+}
+
+/** Fill for bars and map squares. High uses a yellower amber, so it stays apart from red on a projector. */
+export function riskFill(p: number | null | undefined) {
+  return p != null && p >= 0.6 && p < 0.8 ? "var(--amber-fill)" : riskColor(p);
 }
 
 export function riskLevel(p: number): { name: string; tone: Tone } {

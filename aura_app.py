@@ -1,11 +1,11 @@
-"""Aura command deck. Run with: streamlit run aura_app.py
+"""LogiSmart command deck. Run with: streamlit run aura_app.py
 
 Five screens, one decision loop:
   Command map     map-first view of the most urgent pharmaceutical shipments
   Alerts inbox    notification-driven list, each alert opens a response
   Guided response Detect, Categorize, Prioritize, Explain, Decide for one shipment
   What-if         change the order and watch risk, runway and money move
-  Evidence        infographic of how Aura decides and how often it is right
+  Evidence        infographic of how LogiSmart decides and how often it is right
 """
 import pandas as pd
 import streamlit as st
@@ -19,7 +19,7 @@ from src.model import load_model, predict_failure_risk
 from src.protocols import record_custody_handshake
 from src.recommendations import ACTION_CATALOG, LOSS_SHARE, check_sla_status
 
-st.set_page_config(page_title="Aura Predictive", layout="wide")
+st.set_page_config(page_title="LogiSmart Predictive", layout="wide")
 st.markdown(f"<style>{t.CSS}</style>", unsafe_allow_html=True)
 
 VIEWS = ["Command map", "Alerts inbox", "Guided response", "What-if simulator", "Evidence"]
@@ -198,7 +198,7 @@ def crumbs(view):
     line = next(o for o in line_options() if abs(o["alert_line"] - state.alert_line) < .001)
     md(f"""
     <div class="crumbs">
-      <b>Aura</b>{chip("Simulated shipments", "teal")}
+      <b>LogiSmart</b>{chip("Simulated shipments", "teal")}
       <span class="sep">/</span><b>{esc(view)}</b>
       <span class="push num">{len(Q)} pharma alerts at the {state.alert_line:.0%} line</span>
       <span class="sep">/</span>
@@ -510,7 +510,7 @@ def step_detect(result):
     flagged = risk["p_failure"] >= state.alert_line
     md(f"""
     <div class="h2">Will it be disrupted?</div>
-    <p class="note">Aura scores this shipment at <b style="color:{t.TEXT}">{risk['p_failure']:.0%}</b>.
+    <p class="note">LogiSmart scores this shipment at <b style="color:{t.TEXT}">{risk['p_failure']:.0%}</b>.
     The alert line is {state.alert_line:.0%}, so it is {'flagged' if flagged else 'not flagged'}.
     {'The backup model was used because weather is missing.' if risk['model_variant'] != 'primary' else ''}</p>
     <div class="eyebrow" style="margin-top:24px">What the model read</div>
@@ -523,7 +523,7 @@ def step_detect(result):
     </div>
     <div class="eyebrow" style="margin-top:24px">Can you trust the alert?</div>
     <p class="note" style="margin-top:8px">On {score['tested_on_shipments']:,} held-out simulated shipments,
-    {score['precision']:.0%} of alerts were real disruptions and Aura caught about 7 in 10 of them.</p>""")
+    {score['precision']:.0%} of alerts were real disruptions and LogiSmart caught about 7 in 10 of them.</p>""")
 
 
 def step_categorize(result):
@@ -745,7 +745,7 @@ def live_weather():
 def view_whatif():
     crumbs("What-if simulator")
     md('<h1 class="title">What if the order changes?</h1>'
-       '<p class="subtitle">Move a control and Aura re-scores the order: risk, thermal runway, '
+       '<p class="subtitle">Move a control and LogiSmart re-scores the order: risk, thermal runway, '
        'the action that pays and what each choice leaves at stake.</p>')
     places = sorted(intake.PLACES)
     left, right = st.columns([1, 1.5], gap="medium")
@@ -840,14 +840,14 @@ def view_whatif():
                 md(f'<div class="h2" style="margin-bottom:12px">Same order, five skies</div><div class="kv">{cells}</div>')
         if result["inferred"]:
             notes = "".join(f"<li>{esc(text)}</li>" for text in result["inferred"].values() if text)
-            md(f'<p class="fine">What Aura assumed:</p><ul class="fine" style="padding-left:16px">{notes}</ul>')
+            md(f'<p class="fine">What LogiSmart assumed:</p><ul class="fine" style="padding-left:16px">{notes}</ul>')
 
 
 # ---------------------------------------------------------------- 5. evidence
 
 def view_evidence():
     crumbs("Evidence")
-    md('<h1 class="title">How Aura decides, and how often it is right</h1>'
+    md('<h1 class="title">How LogiSmart decides, and how often it is right</h1>'
        '<p class="subtitle">Every figure here comes from the trained model and 1,000 held-out '
        'simulated shipments. None of it is real shipment data.</p>')
     raw = shipments()
@@ -893,7 +893,7 @@ def view_evidence():
             md(f"""
             <div class="h2">Fewer false alarms</div>
             <p class="note" style="margin-bottom:16px">Against flagging every shipment, which is what a cautious team does today.</p>
-            <div class="driver"><div class="top"><span>Aura at {state.alert_line:.0%}</span><span class="num">{false}</span></div>
+            <div class="driver"><div class="top"><span>LogiSmart at {state.alert_line:.0%}</span><span class="num">{false}</span></div>
               <div style="margin-top:8px">{blocks(false / flag_all, 40, t.RED)}</div></div>
             <div class="driver"><div class="top"><span>Flag everything</span><span class="num">{flag_all}</span></div>
               <div style="margin-top:8px">{blocks(1, 40, t.QUIET)}</div></div>
@@ -911,7 +911,7 @@ def view_evidence():
                 for name, count in ACTION_MIX)
             md(f"""<div class="h2">A decision for every alert</div>
             <p class="note" style="margin-bottom:16px">Best action across the {total} test alerts at the 60% line.
-            Aura says keep monitoring when no action pays.</p>{rows}""")
+            LogiSmart says keep monitoring when no action pays.</p>{rows}""")
     md('<p class="fine">Assumptions: a disruption costs 10% of cargo value; cargo values, thermal buffers and '
        'urgency tiers are simulated; action fees are example figures.</p>')
 

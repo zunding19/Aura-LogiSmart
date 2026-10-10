@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import clsx from "clsx";
 import NumberFlow from "@number-flow/react";
 import { toast } from "sonner";
@@ -17,7 +17,7 @@ function Detect({ data }: { data: Data }) {
     <>
       <h2 className="h2">Will it be disrupted?</h2>
       <p className="note">
-        Aura scores this shipment at <b className="ink">{pct(risk.p_failure)}</b>. The alert line is {pct(line)}, so it is{" "}
+        LogiSmart scores this shipment at <b className="ink">{pct(risk.p_failure)}</b>. The alert line is {pct(line)}, so it is{" "}
         {flagged ? "flagged" : "not flagged"}.
         {risk.model_variant !== "primary" && " The backup model was used because weather is missing."}
       </p>
@@ -32,7 +32,7 @@ function Detect({ data }: { data: Data }) {
       <div className="eyebrow" style={{ marginTop: 24 }}>Can you trust the alert?</div>
       <p className="note" style={{ marginTop: 8 }}>
         On {Number(scorecard.tested_on_shipments).toLocaleString("en-US")} held-out simulated shipments,{" "}
-        {pct(scorecard.precision)} of alerts were real disruptions and Aura caught about 7 in 10 of them.
+        {pct(scorecard.precision)} of alerts were real disruptions and LogiSmart caught about 7 in 10 of them.
       </p>
     </>
   );
@@ -126,9 +126,8 @@ function Decide({ data, id, tried }: { data: Data; id: string; tried: string | u
   return (
     <>
       <h2 className="h2">What to do?</h2>
-      <p className="note" style={{ marginBottom: 16 }}>
-        Try an action. The risk, the thermal runway and the money on the right update at once. Nothing is sent to anyone
-        until you commit.
+      <p className="note" style={{ marginBottom: 12 }}>
+        Try an action to see its result on the right. Nothing is sent to anyone until you commit.
       </p>
       <table className="matrix">
         <thead>
@@ -205,7 +204,8 @@ function Rail({ data, id, tried }: { data: Data; id: string; tried: string | und
   const now: number = option ? option.risk_after : before;
   const runway: number | null = option ? option.thermal_runway_hours_after : thermal.runway_hours;
   const level = riskLevel(now);
-  const changed = Math.abs(now - before) > 0.001;
+  // Compared as shown on screen, so a move under one point does not count as a change.
+  const changed = Math.round(now * 100) !== Math.round(before * 100);
   const after = option?.after ? { ...option.after, title: option.title } : null;
   const logged = !!tried && (data.committed as string[]).includes(tried);
   const corrective = !!tried && CORRECTIVE.includes(tried);
@@ -235,35 +235,54 @@ function Rail({ data, id, tried }: { data: Data; id: string; tried: string | und
     }
   }
 
-  let outcome: { tone: "teal" | ""; head: string; text: string } | null = null;
+  // A win leads the rail as one large figure. Anything else stays a quiet note.
+  let win: { label: string; figure: ReactNode; text: string } | null = null;
+  let outcome: { head: string; text: string } | null = null;
   if (option) {
     const fee = usd(option.action_cost_usd);
     if (option.covers_thermal_gap && !changed) {
-      outcome = {
-        tone: "teal",
-        head: "Batch protected",
-        text: `Thermal runway goes from ${hours(thermal.runway_hours)} to ${hours(runway)}. The ${usd(option.cargo_protected_usd)} batch is protected for a ${fee} fee. The risk score does not move: more cooling does not stop a storm.`,
+      win = {
+        label: "Batch protected",
+        figure: hours(runway),
+        text: `Thermal runway was ${hours(thermal.runway_hours)}. The ${usd(option.cargo_protected_usd)} batch is protected for a ${fee} fee. The risk score does not move: more cooling does not stop a storm.`,
       };
     } else if ((option.net_saving_usd ?? 0) > 0) {
-      outcome = {
-        tone: "teal",
-        head: `Net saving ${usd(option.net_saving_usd)}`,
+      win = {
+        label: "Net saving",
+        figure: (
+          <NumberFlow value={Math.round(option.net_saving_usd)}
+            format={{ style: "currency", currency: "USD", maximumFractionDigits: 0 }} />
+        ),
         text: `Risk falls from ${pct(before)} to ${pct(now)}. Expected loss avoided, less the ${fee} fee.`,
       };
     } else if (tried === "stock_diversion") {
-      outcome = { tone: "", head: "Hospital covered", text: option.effect };
+      outcome = { head: "Hospital covered", text: option.effect };
     } else if (tried === "monitor") {
-      outcome = { tone: "", head: "No spend", text: option.effect };
+      outcome = { head: "No action taken", text: option.effect };
     } else {
-      outcome = { tone: "", head: `Costs ${fee}, no risk saving`, text: option.effect };
+      outcome = { head: `Costs ${fee}, no risk saving`, text: option.effect };
     }
   }
 
+  const commitButton = option && (
+    <button type="button" className="btn primary wide" disabled={logged || busy} onClick={commit}>
+      {logged ? "Logged" : corrective ? "Commit and log handshake" : "Commit action"}
+    </button>
+  );
+
   return (
-    <section className="panel" aria-label="Live impact">
+    <section className="panel rail" aria-label="Live impact">
+      {win && (
+        <div className="outcome" aria-live="polite">
+          <div className="eyebrow">{win.label}</div>
+          <span className="big">{win.figure}</span>
+          <p>{win.text}</p>
+          {commitButton}
+        </div>
+      )}
       <div className="eyebrow">Disruption risk{option ? " after action" : ""}</div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginTop: 8, flexWrap: "wrap" }} aria-live="polite">
-        <NumberFlow className="big" style={{ color: riskColor(now) }} value={Math.round(now * 100) / 100}
+        <NumberFlow className={win ? "mid" : "big"} style={{ color: riskColor(now) }} value={Math.round(now * 100) / 100}
           format={{ style: "percent", maximumFractionDigits: 0 }} />
         <Chip tone={level.tone}>{level.name}</Chip>
         {option && changed && <span className="note">was {pct(before)}</span>}
@@ -274,11 +293,15 @@ function Rail({ data, id, tried }: { data: Data; id: string; tried: string | und
         {
           label: "Thermal runway",
           value: hours(runway),
-          color: (runway ?? 0) < 0 ? "var(--red)" : option?.covers_thermal_gap ? "var(--teal)" : undefined,
+          color: runway == null ? undefined : runway < 0 ? "var(--red)" : "var(--teal)",
+          sub: runway == null ? undefined : runway < 0 ? "Batch exposed" : "Batch protected",
         },
       ]} />
       {outcome && (
-        <Banner tone={outcome.tone} title={outcome.head} style={{ marginTop: 16 }}>{outcome.text}</Banner>
+        <>
+          <Banner title={outcome.head} style={{ margin: "16px 0" }}>{outcome.text}</Banner>
+          {commitButton}
+        </>
       )}
       {thermal.curve && thermal.buffer_hours != null ? (
         <>
@@ -289,11 +312,6 @@ function Rail({ data, id, tried }: { data: Data; id: string; tried: string | und
       ) : (
         thermal.note && <p className="fine">{thermal.note}</p>
       )}
-      {option && (
-        <button type="button" className="btn primary wide" style={{ marginTop: 16 }} disabled={logged || busy} onClick={commit}>
-          {logged ? "Logged" : corrective ? "Commit and log handshake" : "Commit action"}
-        </button>
-      )}
     </section>
   );
 }
@@ -303,7 +321,7 @@ export default function Guided() {
   const { data, loading, error } = useApi(id ? `/api/shipment/${encodeURIComponent(id)}?line=${line}` : null, rev);
 
   if (!id) return <Banner title="No shipment selected">Pick one from the command map.</Banner>;
-  if (error) return <Banner tone="red" title="Cannot reach Aura's server">{error}</Banner>;
+  if (error) return <Banner tone="red" title="Cannot reach LogiSmart's server">{error}</Banner>;
   if (!data) return loading ? <div className="skeleton" aria-busy="true" /> : null;
   if (data.status !== "ok") {
     return (
@@ -322,25 +340,30 @@ export default function Guided() {
 
   return (
     <>
-      <h1 className="title num">{id}</h1>
+      <div className="shiphead">
+        <h1 className="title num">{id}</h1>
+        <div className="chips">
+          <Chip tone={stormy ? "red" : ""}>{ship.Weather_Condition ?? "Weather not entered"}</Chip>
+          <Chip tone={ship.Hospital_Urgency_Tier_Simulated === "Critical Emergency" ? "red" : ""}>
+            {ship.Hospital_Urgency_Tier_Simulated ?? "No urgency tier"}
+          </Chip>
+          <Chip>Storage {ship.Storage_Standard_Simulated}</Chip>
+          {data.flag_land_route && <Chip tone="amber">Data check: land route crosses an ocean</Chip>}
+        </div>
+      </div>
       <p className="subtitle" style={{ marginBottom: 12 }}>
         {ship.Origin_Port} to {ship.Destination_Port} by {String(ship.Transport_Mode).toLowerCase()},{" "}
         {Number(data.thermal.hours_to_go ?? 0).toFixed(1)} hours still to go.
       </p>
-      <div className="chips" style={{ marginBottom: 24 }}>
-        <Chip tone={stormy ? "red" : ""}>{ship.Weather_Condition ?? "Weather not entered"}</Chip>
-        <Chip tone={ship.Hospital_Urgency_Tier_Simulated === "Critical Emergency" ? "red" : ""}>
-          {ship.Hospital_Urgency_Tier_Simulated ?? "No urgency tier"}
-        </Chip>
-        <Chip>Storage {ship.Storage_Standard_Simulated}</Chip>
-        {data.flag_land_route && <Chip tone="amber">Data check: land route crosses an ocean</Chip>}
-      </div>
 
       {sla?.trigger_condition && (
-        <Banner tone={sla.breach_warning ? "red" : "teal"} title={sla.status} style={{ marginBottom: 16 }}>
-          {sla.breach_notice ? sla.breach_notice.text : "A corrective handshake with at least 3 hours of buffer is on record."}{" "}
-          Simulated: no real notice is sent.
-        </Banner>
+        <details className={clsx("banner", sla.breach_warning ? "red" : "teal")} style={{ marginBottom: 12 }}>
+          <summary>
+            <b>{sla.status}</b>
+            <span>Simulated: no real notice is sent.</span>
+          </summary>
+          <p>{sla.breach_notice ? sla.breach_notice.text : "A corrective handshake with at least 3 hours of buffer is on record."}</p>
+        </details>
       )}
 
       <Segmented label="Response steps" options={STEPS} value={step} onChange={setStep}

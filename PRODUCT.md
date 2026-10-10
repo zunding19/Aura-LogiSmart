@@ -16,11 +16,11 @@ A healthcare logistics coordinator watching live pharmaceutical cold-chain shipm
 
 ## Product Purpose
 
-Aura predicts the probability that a pharmaceutical shipment will fail (late arrival, temperature excursion, or unusable on arrival) hours before it happens, ranks shipments by urgency, explains the main drivers, and lets the coordinator test an intervention and see the new risk and the money saved. Success for the hackathon: a judge can answer yes to "Does your model help someone make a better decision, and can you prove it?"
+LogiSmart predicts the probability that a pharmaceutical shipment will fail (late arrival, temperature excursion, or unusable on arrival) hours before it happens, ranks shipments by urgency, explains the main drivers, and lets the coordinator test an intervention and see the new risk and the money saved. Success for the hackathon: a judge can answer yes to "Does your model help someone make a better decision, and can you prove it?"
 
 ## Positioning
 
-Existing cold-chain monitoring reports a breach after it has happened. Aura forecasts it and attaches a costed decision to every prediction.
+Existing cold-chain monitoring reports a breach after it has happened. LogiSmart forecasts it and attaches a costed decision to every prediction.
 
 ## Operating Context
 
@@ -39,7 +39,7 @@ Existing cold-chain monitoring reports a breach after it has happened. Aura fore
 
 ## Brand Commitments
 
-- Name: Aura.
+- Name: LogiSmart.
 - Feel chosen by the team: calm, trustworthy, medical. Light, clean hospital feel with soft teal and white; red reserved for shipments about to fail.
 - Copy is direct and functional. No buzzwords, no emojis in headings, sparing em dashes.
 - Visual bans listed in CLAUDE.md are binding (no gradients, glassmorphism, Inter-everywhere, colored left-border cards, generic 4-card KPI dashboards).

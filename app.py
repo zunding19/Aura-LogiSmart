@@ -1,4 +1,4 @@
-"""Entry point: `streamlit run app.py` opens the Aura command deck in aura_app.py."""
+"""Entry point: `streamlit run app.py` opens the LogiSmart command deck in aura_app.py."""
 import runpy
 from pathlib import Path
 

@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import clsx from "clsx";
-import { riskColor, type Tone } from "./lib";
+import { riskFill, type Tone } from "./lib";
 import { useStore } from "./store";
 
 export function Chip({ tone = "", children }: { tone?: Tone; children: ReactNode }) {
@@ -32,9 +32,9 @@ export function Meter({ value, before }: { value: number; before?: number }) {
     <>
       <div className="meter" role="img" aria-label={`Disruption risk ${Math.round(value * 100)} percent`}>
         {Math.abs(from - value) > 0.001 && (
-          <div className="ghost" style={{ transform: `scaleX(${from})`, background: riskColor(from) }} />
+          <div className="ghost" style={{ transform: `scaleX(${from})`, background: riskFill(from) }} />
         )}
-        <div className="fill" style={{ transform: `scaleX(${value})`, background: riskColor(value) }} />
+        <div className="fill" style={{ transform: `scaleX(${value})`, background: riskFill(value) }} />
         <div className="cuts" />
         <div className="mark-line" style={{ left: `${line * 100}%` }} />
       </div>

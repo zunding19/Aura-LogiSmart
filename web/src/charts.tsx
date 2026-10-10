@@ -6,13 +6,13 @@ import { usd, type Data } from "./lib";
 
 const INK = "#0f2a2e";
 const SOFT = "#3f5a5e";
-const MUTED = "#5b7377";
+const MUTED = "#4f676b";
 const GRID = "#dce7e6";
 const RED = "#d92d20";
 const TEAL = "#0e7c73";
 const QUIET = "#a9bcbb";
-const TICK = { fontFamily: "Geist Mono Variable, monospace", fontSize: 11, fill: MUTED };
-const LABEL = { fontFamily: "Geist Mono Variable, monospace", fontSize: 11 };
+const TICK = { fontFamily: "Geist Mono Variable, monospace", fontSize: 13, fill: MUTED };
+const LABEL = { fontFamily: "Geist Mono Variable, monospace", fontSize: 13 };
 
 function depletion(buffer: number, span: number) {
   return buffer < span
@@ -32,12 +32,12 @@ export function ThermalChart({ buffer, toGo, after }: {
   const stillShort = after ? after.buffer_hours < after.hours_to_go : false;
 
   return (
-    <ResponsiveContainer width="100%" height={250}>
+    <ResponsiveContainer width="100%" height={210}>
       <ComposedChart margin={{ top: 20, right: 12, bottom: 20, left: 4 }}>
         <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis type="number" dataKey="x" domain={[0, span]} tickCount={6} tick={TICK} stroke={GRID}
           tickFormatter={(v: number) => v.toFixed(0)} allowDuplicatedCategory={false}
-          label={{ value: "Hours from now", position: "insideBottom", offset: -12, fill: MUTED, fontSize: 12 }} />
+          label={{ value: "Hours from now", position: "insideBottom", offset: -12, fill: MUTED, fontSize: 13 }} />
         <YAxis type="number" domain={[0, top]} tickCount={5} tick={TICK} stroke={GRID} width={36}
           tickFormatter={(v: number) => v.toFixed(0)} />
         {short && (
@@ -81,8 +81,8 @@ export function CostChart({ options, cargo, lossShare }: { options: Data[]; carg
       <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 72, bottom: 20, left: 4 }} barCategoryGap="32%">
         <CartesianGrid stroke={GRID} horizontal={false} />
         <XAxis type="number" tick={TICK} stroke={GRID} tickFormatter={(v: number) => (v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`)}
-          label={{ value: "Expected loss plus fee (USD)", position: "insideBottom", offset: -12, fill: MUTED, fontSize: 12 }} />
-        <YAxis type="category" dataKey="name" width={232} tick={{ fontSize: 12, fill: SOFT }} stroke={GRID} />
+          label={{ value: "Expected loss plus fee (USD)", position: "insideBottom", offset: -12, fill: MUTED, fontSize: 13 }} />
+        <YAxis type="category" dataKey="name" width={232} tick={{ fontSize: 13, fill: SOFT }} stroke={GRID} />
         <Tooltip cursor={{ fill: "#eaf3f2" }} formatter={(value) => usd(Number(value))}
           contentStyle={{ borderRadius: 8, border: `1px solid ${GRID}`, fontSize: 13 }} />
         <Bar dataKey="loss" name="Expected loss" stackId="cost" isAnimationActive={false}>

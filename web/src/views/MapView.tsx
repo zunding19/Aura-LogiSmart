@@ -1,11 +1,11 @@
 import clsx from "clsx";
 import type { CSSProperties } from "react";
 import RouteMap from "../RouteMap";
-import { hours, pct, riskColor, useApi, usd, type Data } from "../lib";
+import { hours, pct, riskColor, riskFill, riskLevel, useApi, usd, type Data } from "../lib";
 import { useStore } from "../store";
-import { Banner, Blocks, KV, Meter } from "../ui";
+import { Banner, Blocks, Chip, KV, Meter } from "../ui";
 
-function QueueRow({ row, rank, on }: { row: Data; rank: number; on: boolean }) {
+function QueueRow({ row, rank, on, logged }: { row: Data; rank: number; on: boolean; logged: boolean }) {
   const go = useStore((s) => s.go);
   const color = riskColor(row.p_failure);
   return (
@@ -20,12 +20,15 @@ function QueueRow({ row, rank, on }: { row: Data; rank: number; on: boolean }) {
           {usd(row.Cargo_Value_USD_Simulated)} · {row.Hospital_Urgency_Tier_Simulated} ·{" "}
           {row.runway == null ? "powered reefer" : <span className={row.runway < 0 ? "red" : undefined}>runway {hours(row.runway)}</span>}
         </div>
+        {logged && <div className="chips"><Chip tone="teal">Action logged</Chip></div>}
       </div>
       <div className="risk" style={{ color }}>
         {pct(row.p_failure)}
-        <small><Blocks share={row.p_failure} color={color} /></small>
+        <div className="level">{riskLevel(row.p_failure).name}</div>
+        <small><Blocks share={row.p_failure} color={riskFill(row.p_failure)} /></small>
       </div>
-      <button type="button" className={clsx("btn", on && "primary")} onClick={() => go("respond", row.Shipment_ID, "Detect")}>
+      <button type="button" className={clsx("btn", on && "primary")} aria-label={`Open ${row.Shipment_ID}`}
+        onClick={() => go("respond", row.Shipment_ID, "Detect")}>
         Open
       </button>
     </div>
@@ -70,6 +73,7 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
   const { selected, select } = useStore();
   const top: Data[] = queue.top;
   const stats = queue.stats;
+  const logged = new Set((queue.alerts as Data[]).filter((a) => a.logged).map((a) => a.id));
 
   return (
     <>
@@ -100,7 +104,8 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
             <h2 className="h2">Triage queue</h2>
             <p className="note" style={{ marginBottom: 12 }}>Most urgent first.</p>
             {top.map((row, i) => (
-              <QueueRow key={row.Shipment_ID} row={row} rank={i + 1} on={row.Shipment_ID === selected} />
+              <QueueRow key={row.Shipment_ID} row={row} rank={i + 1} on={row.Shipment_ID === selected}
+                logged={logged.has(row.Shipment_ID)} />
             ))}
           </section>
         </div>

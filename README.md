@@ -1,4 +1,4 @@
-# Aura: early warning for pharmaceutical shipments
+# LogiSmart: early warning for pharmaceutical shipments
 
 **Dormathon 2026, Track 1: Predict Early, Decide Better** (organised by AI Hackerdorm)
 
@@ -14,11 +14,11 @@ A healthcare logistics coordinator watches dozens of pharmaceutical shipments at
 
 One user: the logistics coordinator who decides which shipment to act on, and what to do about it, while the shipment is still moving.
 
-## What Aura does
+## What LogiSmart does
 
-Aura scores every active shipment and walks the coordinator through five steps.
+LogiSmart scores every active shipment and walks the coordinator through five steps.
 
-| Step | Question | What Aura shows |
+| Step | Question | What LogiSmart shows |
 |---|---|---|
 | Detect | Will it be disrupted? | A disruption risk from 0 to 100%, in four tiers (Low, Medium, High, Critical) |
 | Categorize | What kind of trouble? | Transport delay, cold-chain excursion, or a delay leading to an excursion |
@@ -45,7 +45,7 @@ The model also holds up when its inputs are imperfect: scores barely move with 3
 ## What is real and what is assumed
 
 - **The shipments are simulated.** The dataset is general cargo (5,000 shipments, 1,006 of them pharmaceuticals) and looks generated. The scores show that the method works, not how it would score on a real carrier's records.
-- **Aura covers air and road shipments.** Sea and rail are out of scope. The model still learns from all four modes, because mode does not change how often a shipment is disrupted. On air and road test shipments alone it scores precision 86% and recall 74%.
+- **LogiSmart covers air and road shipments.** Sea and rail are out of scope. The model still learns from all four modes, because mode does not change how often a shipment is disrupted. On air and road test shipments alone it scores precision 86% and recall 74%.
 - **The model predicts disruption, not spoilage.** The data records only whether a shipment was disrupted. Thermal runway (buffer hours left against hours still to go) shows whether the cargo would survive that disruption.
 - **Cargo value, storage standard, thermal buffer and hospital urgency are simulated** by `src/build_dataset.py`. They are used for ranking and money, never as model inputs.
 - **Action fees, action effects and the cost of a disruption (10% of cargo value) are assumptions.** A real team would replace them with its own figures.

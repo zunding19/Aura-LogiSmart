@@ -26,7 +26,7 @@ from src.schema import TARGET_COLUMN, TYPICAL_PACE, WEATHER_SEVERITY
 from src.weather import current_weather
 
 INSUFFICIENT = "Insufficient data for reliable prediction"
-OUT_OF_SCOPE = "Outside Aura's scope"
+OUT_OF_SCOPE = "Outside LogiSmart's scope"
 
 # The product covers the air leg and the road leg to the hospital.
 # The model still learns from every mode, because mode does not change
@@ -601,7 +601,7 @@ def assess_order(
             return _plain(dict(
                 status=OUT_OF_SCOPE,
                 reason=(
-                    "Aura covers air and road shipments. "
+                    "LogiSmart covers air and road shipments. "
                     f"This one travels by {clean['Transport_Mode'].lower()}."
                 ),
                 inferred=inferred,

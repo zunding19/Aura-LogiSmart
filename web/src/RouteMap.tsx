@@ -3,7 +3,7 @@ import { geoEquirectangular, geoInterpolate, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import clsx from "clsx";
 import world from "world-atlas/countries-110m.json";
-import { pct, riskColor, usd, type Data } from "./lib";
+import { pct, riskFill, usd, type Data } from "./lib";
 
 const WIDTH = 640;
 const RAD = Math.PI / 180;
@@ -80,7 +80,7 @@ export default function RouteMap({ rows, coordinates, selected, onSelect }: {
         {drawn.routes.map(({ row, d }) => {
           const on = row.Shipment_ID === selected;
           return (
-            <path key={row.Shipment_ID} className="route" d={d} stroke={riskColor(row.p_failure)}
+            <path key={row.Shipment_ID} className="route" d={d} stroke={riskFill(row.p_failure)}
               strokeWidth={on ? 3 : 1.2} opacity={on ? 1 : 0.5} />
           );
         })}
@@ -110,7 +110,7 @@ export default function RouteMap({ rows, coordinates, selected, onSelect }: {
               onFocus={() => setHover(id)} onBlur={() => setHover(null)}>
               {/* A larger invisible square makes the small mark easy to hit. */}
               <rect className="hit" x={mid[0] - 12} y={mid[1] - 12} width={24} height={24} />
-              <rect className="dot" x={mid[0] - 6} y={mid[1] - 6} width={12} height={12} fill={riskColor(row.p_failure)} />
+              <rect className="dot" x={mid[0] - 6} y={mid[1] - 6} width={12} height={12} fill={riskFill(row.p_failure)} />
             </g>
           );
         })}
