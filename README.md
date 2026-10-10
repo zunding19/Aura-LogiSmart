@@ -58,10 +58,16 @@ The model also holds up when its inputs are imperfect: scores barely move with 3
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-streamlit run app.py
+cd web
+npm install
+npm run build
+cd ..
+python server.py
 ```
 
-The app opens at http://localhost:8501. Run the tests with `python -m pytest`.
+The app opens at http://localhost:8000. `server.py` serves both the React app (built into `web/dist`) and the JSON API over the Python model. Run the tests with `python -m pytest`.
+
+An earlier Streamlit version of the same screens is kept as a fallback: `streamlit run app.py`.
 
 ## Use the backend directly
 
@@ -86,7 +92,9 @@ result = assess_order({
 ## Repository
 
 ```text
-app.py                 Streamlit app
+server.py              Web server: JSON API over the model, plus the built React app
+web/                   React app (Vite, TypeScript): the five screens
+app.py                 Streamlit fallback of the same screens (aura_app.py, deck/)
 src/
   intake.py            One order in, one full assessment out
   model.py             Loads the saved model and scores shipments
@@ -105,4 +113,4 @@ tests/                 77 tests covering the model, the order flow, the SLA and 
 
 ## Technology
 
-Python 3.13, Streamlit, pandas, NumPy, scikit-learn (logistic regression) and Plotly.
+Python 3.13, pandas, NumPy and scikit-learn (logistic regression) behind a Starlette API; React 19 with Vite, Recharts, Sonner, NumberFlow, zustand and d3-geo for the interface. Streamlit and Plotly power the fallback app.
