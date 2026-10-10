@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-#display result 
-=======
 import pandas as pd
 import streamlit as st
 
@@ -33,4 +30,3 @@ st.dataframe(
     pd.DataFrame([SAMPLE_SHIPMENT]).astype(str).T.rename(columns={0: "Value"}),
     width="stretch",
 )
->>>>>>> zhetein
