@@ -1,4 +1,4 @@
-"""Priority score using total packaging capacity."""
+"""Priority from supplied-data disruption probability, without invented USD loss."""
 import numpy as np
 import pandas as pd
 
@@ -6,102 +6,74 @@ from src.preprocessing import (
     ShipmentValidationError,
     clean_raw_shipment_data,
 )
-from src.schema import (
-    URGENCY_WEIGHTS,
-)
 
 
-def calculate_triage_queue(
-    shipments_df: pd.DataFrame,
-):
-    if (
-        not isinstance(
-            shipments_df, pd.DataFrame
-        )
-        or "p_failure" not in shipments_df
-    ):
-        raise ShipmentValidationError(
-            "Triage requires a DataFrame with p_failure."
-        )
-
-    queue = clean_raw_shipment_data(
-        shipments_df
-    ).copy()
-
-    unsupported = queue[
-        "p_failure"
-    ].map(
+def _probabilities(values):
+    unsupported = values.map(
         lambda value: isinstance(
-            value,
-            (
-                bool,
-                np.bool_,
-                complex,
-                np.complexfloating,
-            ),
+            value, (bool, np.bool_, complex, np.complexfloating)
         )
     )
-
-    probability = pd.to_numeric(
-        queue["p_failure"].where(
-            ~unsupported,
-            np.nan,
-        ),
+    result = pd.to_numeric(
+        values.where(~unsupported, np.nan),
         errors="coerce",
     )
 
-    invalid = (
-        probability.isna()
-        | ~np.isfinite(probability)
-        | ~probability.between(0, 1)
-    )
-
-    if invalid.any():
+    if (
+        result.isna()
+        | ~np.isfinite(result)
+        | ~result.between(0, 1)
+    ).any():
         raise ShipmentValidationError(
-            "p_failure must be finite and between 0 and 1."
+            "Disruption probabilities must be finite numbers "
+            "between 0 and 1."
         )
 
-    queue["p_failure"] = (
-        probability.astype(float)
-    )
+    return result.astype(float)
 
-    with np.errstate(
-        over="ignore",
-        invalid="ignore",
-        divide="ignore",
-    ):
-        queue["expected_loss_usd"] = (
-            probability
-            * queue["Cargo_Value_USD"]
-        )
 
-        queue["urgency_score"] = (
-            queue["expected_loss_usd"]
-            * queue["Hospital_Urgency_Tier"]
-            .map(URGENCY_WEIGHTS)
-            / queue["Buffer_of_Package"]
-            .clip(lower=0.5)
-        )
-
-    if not np.isfinite(
-        queue[
-            [
-                "expected_loss_usd",
-                "urgency_score",
-            ]
-        ].to_numpy()
-    ).all():
+def calculate_triage_queue(shipments_df: pd.DataFrame) -> pd.DataFrame:
+    """Stable descending probability; urgency_score is a compatibility alias."""
+    if not isinstance(shipments_df, pd.DataFrame):
         raise ShipmentValidationError(
-            "Shipment values exceed finite priority arithmetic."
+            "Triage requires a shipment DataFrame."
         )
 
+    probability_column = (
+        "p_disruption"
+        if "p_disruption" in shipments_df
+        else "p_failure"
+    )
+    if probability_column not in shipments_df:
+        raise ShipmentValidationError(
+            "Supply p_disruption; legacy p_failure is also accepted."
+        )
+
+    queue = clean_raw_shipment_data(shipments_df).copy()
+    probability = _probabilities(queue[probability_column])
+
+    if "p_disruption" in queue and "p_failure" in queue:
+        alias = _probabilities(queue["p_failure"])
+        if not np.allclose(
+            probability, alias, rtol=0, atol=1e-12
+        ):
+            raise ShipmentValidationError(
+                "p_failure alias disagrees with p_disruption."
+            )
+
+    queue["p_disruption"] = probability
+    queue["p_failure"] = probability
+    queue["risk_score"] = probability
+    queue["urgency_score"] = probability
     queue["priority_basis"] = (
-        "Total packaging hold capacity; "
-        "elapsed time unavailable"
+        "Recorded-data disruption probability only; "
+        "no observed loss cost or hospital urgency. "
+        "urgency_score and p_failure are compatibility aliases, "
+        "not clinical or spoilage measures."
     )
 
     return queue.sort_values(
-        "urgency_score",
+        "risk_score",
         ascending=False,
         kind="mergesort",
     )
