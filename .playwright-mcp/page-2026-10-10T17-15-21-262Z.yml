@@ -1,0 +1,27 @@
+- generic [ref=f2e3]:
+  - complementary [ref=f2e4]:
+    - generic [ref=f2e5]: LogiSmart
+    - button "Command map" [ref=f2e8] [cursor=pointer]
+    - button "Alerts inbox 12" [ref=f2e9] [cursor=pointer]:
+      - text: Alerts inbox
+      - generic [ref=f2e10]: "12"
+    - button "Guided response" [ref=f2e11] [cursor=pointer]
+    - button "What-if simulator" [ref=f2e12] [cursor=pointer]
+    - button "Evidence" [ref=f2e13] [cursor=pointer]
+  - main [ref=f2e14]:
+    - generic [ref=f2e15]:
+      - generic [ref=f2e16]: LogiSmart
+      - generic [ref=f2e17]: Simulated shipments
+      - generic [ref=f2e19]: /
+      - generic [ref=f2e20]: Guided response
+      - generic [ref=f2e21]: 244 pharma alerts at the 60% line
+      - generic [ref=f2e22]: /
+      - generic [ref=f2e23]: 77 false alarms per 1,000 tested
+  - region "Notifications alt+T" [ref=f2e25]:
+    - list:
+      - listitem [ref=f2e26]:
+        - button "Close toast" [ref=f2e27] [cursor=pointer]
+        - generic [ref=f2e34]:
+          - generic [ref=f2e35]: "SC-12132: SLA breach notice issued"
+          - generic [ref=f2e36]: Dubai to Shanghai by air
+        - button "Respond" [ref=f2e37] [cursor=pointer]

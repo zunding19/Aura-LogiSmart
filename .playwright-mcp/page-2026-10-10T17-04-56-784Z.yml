@@ -1,0 +1,109 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]: aura
+      - button "Command map" [ref=e8] [cursor=pointer]
+      - button "Alerts inbox 11" [ref=e9] [cursor=pointer]:
+        - text: Alerts inbox
+        - generic [ref=e10]: "11"
+      - button "Guided response" [active] [ref=e11] [cursor=pointer]
+      - button "What-if simulator" [ref=e12] [cursor=pointer]
+      - button "Evidence" [ref=e13] [cursor=pointer]
+    - main [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]: Aura
+        - generic [ref=e17]: Simulated shipments
+        - generic [ref=e19]: /
+        - generic [ref=e20]: Guided response
+        - generic [ref=e21]: 244 pharma alerts at the 60% line
+        - generic [ref=e22]: /
+        - generic [ref=e23]: 77 false alarms per 1,000 tested
+      - heading "SC-12132" [level=1] [ref=e508]
+      - paragraph [ref=e509]: Dubai to Shanghai by air, 7.4 hours still to go.
+      - generic [ref=e510]:
+        - generic [ref=e511]: Hurricane
+        - generic [ref=e513]: Critical Emergency
+        - generic [ref=e515]: Storage 2°C to 8°C
+      - generic [ref=e517]:
+        - text: Corrective proof verified. Escrow released.
+        - paragraph [ref=e518]: "A corrective handshake with at least 3 hours of buffer is on record. Simulated: no real notice is sent."
+      - group "Response steps" [ref=e519]:
+        - button "1Detect" [pressed] [ref=e520] [cursor=pointer]
+        - button "2Categorize" [ref=e521] [cursor=pointer]
+        - button "3Prioritize" [ref=e522] [cursor=pointer]
+        - button "4Explain" [ref=e523] [cursor=pointer]
+        - button "5Decide" [ref=e524] [cursor=pointer]
+      - generic [ref=e525]:
+        - generic [ref=e526]:
+          - generic [ref=e527]:
+            - heading "Will it be disrupted?" [level=2] [ref=e528]
+            - paragraph [ref=e529]: Aura scores this shipment at 99%. The alert line is 60%, so it is flagged.
+            - generic [ref=e530]: What the model read
+            - generic [ref=e531]:
+              - generic [ref=e532]:
+                - generic [ref=e533]: Weather
+                - generic [ref=e534]: Hurricane
+              - generic [ref=e535]:
+                - generic [ref=e536]: Route risk
+                - generic [ref=e537]: 6.2 / 10
+              - generic [ref=e538]:
+                - generic [ref=e539]: Carrier
+                - generic [ref=e540]: 0.71 / 1
+              - generic [ref=e541]:
+                - generic [ref=e542]: Lead time
+                - generic [ref=e543]: 5.3 d
+              - generic [ref=e544]:
+                - generic [ref=e545]: Distance
+                - generic [ref=e546]: 8,616 km
+            - generic [ref=e547]: Can you trust the alert?
+            - paragraph [ref=e548]: On 1,000 held-out simulated shipments, 85% of alerts were real disruptions and Aura caught about 7 in 10 of them.
+          - button "Continue to Categorize" [ref=e550] [cursor=pointer]
+        - region "Live impact" [ref=e551]:
+          - generic [ref=e552]: Disruption risk
+          - generic [ref=e553]:
+            - generic [ref=e554]:
+              - generic [ref=e557]:
+                - generic [ref=e558]: "9"
+                - generic [ref=e560]: "9"
+              - generic [ref=e562]: "%"
+            - generic [ref=e565]: Critical
+          - img "Disruption risk 99 percent" [ref=e567]
+          - generic [ref=e571]:
+            - generic [ref=e572]: 0%
+            - generic [ref=e573]: Alert line 60%
+            - generic [ref=e574]: 100%
+          - generic [ref=e575]:
+            - generic [ref=e576]:
+              - generic [ref=e577]: Cargo
+              - generic [ref=e578]: $3.0M
+            - generic [ref=e579]:
+              - generic [ref=e580]: Thermal runway
+              - generic [ref=e581]: 7.4 h short
+          - generic [ref=e582]: Thermal runway
+          - application [ref=e585]:
+            - generic [ref=e600]:
+              - generic [ref=e601]:
+                - generic [ref=e602]: "0"
+                - generic [ref=e604]: "2"
+                - generic [ref=e606]: "4"
+                - generic [ref=e608]: "6"
+                - generic [ref=e610]: "8"
+                - generic [ref=e612]: "10"
+              - generic [ref=e614]: Hours from now
+              - generic [ref=e615]:
+                - generic [ref=e616]: "0"
+                - generic [ref=e618]: "3"
+                - generic [ref=e620]: "6"
+                - generic [ref=e622]: "9"
+              - generic [ref=e624]: Unprotected 7.4 h
+              - generic [ref=e625]: Arrival
+          - paragraph [ref=e626]: Buffer hours, not temperature. The data has no temperature readings.
+    - region "Notifications alt+T":
+      - list:
+        - listitem [ref=e350]:
+          - button "Close toast" [ref=e351] [cursor=pointer]
+          - generic [ref=e358]:
+            - generic [ref=e359]: "SC-14451: SLA breach notice issued"
+            - generic [ref=e360]: Dubai to Singapore by air
+          - button "Respond" [ref=e361] [cursor=pointer]
+  - generic [aria-hidden] [ref=e627]: "3"

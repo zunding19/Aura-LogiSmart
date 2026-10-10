@@ -1,0 +1,159 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]: aura
+    - button "Command map" [ref=e8] [cursor=pointer]
+    - button "Alerts inbox 11" [active] [ref=e9] [cursor=pointer]:
+      - text: Alerts inbox
+      - generic [ref=e10]: "11"
+    - button "Guided response" [ref=e11] [cursor=pointer]
+    - button "What-if simulator" [ref=e12] [cursor=pointer]
+    - button "Evidence" [ref=e13] [cursor=pointer]
+  - main [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]: Aura
+      - generic [ref=e17]: Simulated shipments
+      - generic [ref=e19]: /
+      - generic [ref=e20]: Alerts inbox
+      - generic [ref=e21]: 244 pharma alerts at the 60% line
+      - generic [ref=e22]: /
+      - generic [ref=e23]: 77 false alarms per 1,000 tested
+    - heading "Alerts that need a decision" [level=1] [ref=e362]
+    - paragraph [ref=e363]: Each alert says what went wrong and how long you have. Start a response to see the cause and the action that pays.
+    - group "Filter alerts" [ref=e365]:
+      - button "All" [pressed] [ref=e366] [cursor=pointer]
+      - button "Buffer short" [ref=e367] [cursor=pointer]
+      - button "Resolved" [ref=e368] [cursor=pointer]
+      - button "Risk" [ref=e369] [cursor=pointer]
+      - button "SLA breach" [ref=e370] [cursor=pointer]
+      - button "Weather" [ref=e371] [cursor=pointer]
+    - generic [ref=e372]:
+      - generic [ref=e373]:
+        - generic [ref=e374]:
+          - generic [ref=e375]:
+            - generic [ref=e376]: Resolved
+            - generic [ref=e378]: SC-12132
+            - generic [ref=e379]: Dubai to Shanghai by air
+            - generic [ref=e380]: Action logged
+          - generic [ref=e382]: Corrective proof verified. Escrow released.
+          - generic [ref=e383]: A corrective handshake with at least 3 hours of buffer is on record.
+        - generic [ref=e384]: 7.4 h to arrival
+        - button "Review" [ref=e385] [cursor=pointer]
+      - generic [ref=e386]:
+        - generic [ref=e387]:
+          - generic [ref=e388]:
+            - generic [ref=e389]: SLA breach
+            - generic [ref=e391]: SC-14451
+            - generic [ref=e392]: Dubai to Singapore by air
+          - generic [ref=e393]: SLA breach notice issued
+          - generic [ref=e394]: Disruption risk is 99% and only 0.0 hours of thermal buffer remain, with no corrective action recorded. Carrier payout is held until a cold-storage transfer, re-icing or refrigerated transport handshake is logged.
+        - generic [ref=e395]: 9.5 h to arrival
+        - button "Start response" [ref=e396] [cursor=pointer]
+      - generic [ref=e397]:
+        - generic [ref=e398]:
+          - generic [ref=e399]:
+            - generic [ref=e400]: Weather
+            - generic [ref=e402]: SC-10206
+            - generic [ref=e403]: Shanghai to Hamburg by road
+          - generic [ref=e404]: Hurricane on the route
+          - generic [ref=e405]: 100% disruption risk on $1.4M of pharmaceuticals for a Elevated Procedure order.
+        - generic [ref=e406]: 258.0 h to arrival
+        - button "Start response" [ref=e407] [cursor=pointer]
+      - generic [ref=e408]:
+        - generic [ref=e409]:
+          - generic [ref=e410]:
+            - generic [ref=e411]: Weather
+            - generic [ref=e413]: SC-12668
+            - generic [ref=e414]: Dubai to Antwerp by road
+          - generic [ref=e415]: Storm on the route
+          - generic [ref=e416]: 83% disruption risk on $1.8M of pharmaceuticals for a Elevated Procedure order.
+        - generic [ref=e417]: 248.1 h to arrival
+        - button "Start response" [ref=e418] [cursor=pointer]
+      - generic [ref=e419]:
+        - generic [ref=e420]:
+          - generic [ref=e421]:
+            - generic [ref=e422]: Weather
+            - generic [ref=e424]: SC-12138
+            - generic [ref=e425]: Los Angeles to Rotterdam by road
+          - generic [ref=e426]: Storm on the route
+          - generic [ref=e427]: 89% disruption risk on $1.0M of pharmaceuticals for a Elevated Procedure order.
+        - generic [ref=e428]: 55.2 h to arrival
+        - button "Start response" [ref=e429] [cursor=pointer]
+      - generic [ref=e430]:
+        - generic [ref=e431]:
+          - generic [ref=e432]:
+            - generic [ref=e433]: Weather
+            - generic [ref=e435]: SC-12285
+            - generic [ref=e436]: Hamburg to Rotterdam by road
+          - generic [ref=e437]: Hurricane on the route
+          - generic [ref=e438]: 99% disruption risk on $996,648 of pharmaceuticals for a Critical Emergency order.
+        - generic [ref=e439]: 525.3 h to arrival
+        - button "Start response" [ref=e440] [cursor=pointer]
+      - generic [ref=e441]:
+        - generic [ref=e442]:
+          - generic [ref=e443]:
+            - generic [ref=e444]: Weather
+            - generic [ref=e446]: SC-14342
+            - generic [ref=e447]: Dubai to Antwerp by road
+          - generic [ref=e448]: Hurricane on the route
+          - generic [ref=e449]: 100% disruption risk on $1.2M of pharmaceuticals for a Elevated Procedure order.
+        - generic [ref=e450]: 827.4 h to arrival
+        - button "Start response" [ref=e451] [cursor=pointer]
+      - generic [ref=e452]:
+        - generic [ref=e453]:
+          - generic [ref=e454]:
+            - generic [ref=e455]: Risk
+            - generic [ref=e457]: SC-13411
+            - generic [ref=e458]: Antwerp to Shanghai by road
+          - generic [ref=e459]: High disruption risk
+          - generic [ref=e460]: 77% disruption risk on $2.1M of pharmaceuticals for a Routine Restock order.
+        - generic [ref=e461]: 74.4 h to arrival
+        - button "Start response" [ref=e462] [cursor=pointer]
+      - generic [ref=e463]:
+        - generic [ref=e464]:
+          - generic [ref=e465]:
+            - generic [ref=e466]: Buffer short
+            - generic [ref=e468]: SC-13003
+            - generic [ref=e469]: Singapore to Busan by air
+          - generic [ref=e470]: Thermal buffer ends 38.6 h before arrival
+          - generic [ref=e471]: 99% disruption risk on $4.4M of pharmaceuticals for a Routine Restock order.
+        - generic [ref=e472]: 42.2 h to arrival
+        - button "Start response" [ref=e473] [cursor=pointer]
+      - generic [ref=e474]:
+        - generic [ref=e475]:
+          - generic [ref=e476]:
+            - generic [ref=e477]: Risk
+            - generic [ref=e479]: SC-14123
+            - generic [ref=e480]: Busan to Hamburg by road
+          - generic [ref=e481]: High disruption risk
+          - generic [ref=e482]: 70% disruption risk on $1.2M of pharmaceuticals for a Elevated Procedure order.
+        - generic [ref=e483]: 264.1 h to arrival
+        - button "Start response" [ref=e484] [cursor=pointer]
+      - generic [ref=e485]:
+        - generic [ref=e486]:
+          - generic [ref=e487]:
+            - generic [ref=e488]: Weather
+            - generic [ref=e490]: SC-13740
+            - generic [ref=e491]: Hamburg to Busan by road
+          - generic [ref=e492]: Hurricane on the route
+          - generic [ref=e493]: 99% disruption risk on $765,273 of pharmaceuticals for a Elevated Procedure order.
+        - generic [ref=e494]: 1407.7 h to arrival
+        - button "Start response" [ref=e495] [cursor=pointer]
+      - generic [ref=e496]:
+        - generic [ref=e497]:
+          - generic [ref=e498]:
+            - generic [ref=e499]: Weather
+            - generic [ref=e501]: SC-12348
+            - generic [ref=e502]: Busan to Hamburg by road
+          - generic [ref=e503]: Hurricane on the route
+          - generic [ref=e504]: 100% disruption risk on $1.1M of pharmaceuticals for a Elevated Procedure order.
+        - generic [ref=e505]: 1128.0 h to arrival
+        - button "Start response" [ref=e506] [cursor=pointer]
+    - paragraph [ref=e507]: SLA notices and escrow are a simulation. No notice is sent and no payment is held.
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e350]:
+        - button "Close toast" [ref=e351] [cursor=pointer]
+        - generic [ref=e358]:
+          - generic [ref=e359]: "SC-14451: SLA breach notice issued"
+          - generic [ref=e360]: Dubai to Singapore by air
+        - button "Respond" [ref=e361] [cursor=pointer]

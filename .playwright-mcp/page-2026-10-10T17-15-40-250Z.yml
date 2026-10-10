@@ -1,0 +1,124 @@
+- generic [ref=f3e3]:
+  - complementary [ref=f3e4]:
+    - generic [ref=f3e5]: LogiSmart
+    - button "Command map" [ref=f3e8] [cursor=pointer]
+    - button "Alerts inbox 12" [ref=f3e9] [cursor=pointer]:
+      - text: Alerts inbox
+      - generic [ref=f3e10]: "12"
+    - button "Guided response" [ref=f3e11] [cursor=pointer]
+    - button "What-if simulator" [ref=f3e12] [cursor=pointer]
+    - button "Evidence" [ref=f3e13] [cursor=pointer]
+  - main [ref=f3e14]:
+    - generic [ref=f3e15]:
+      - generic [ref=f3e16]: LogiSmart
+      - generic [ref=f3e17]: Simulated shipments
+      - generic [ref=f3e19]: /
+      - generic [ref=f3e20]: What-if simulator
+      - generic [ref=f3e21]: 244 pharma alerts at the 60% line
+      - generic [ref=f3e22]: /
+      - generic [ref=f3e23]: 77 false alarms per 1,000 tested
+    - heading "What if the order changes?" [level=1] [ref=f3e24]
+    - paragraph [ref=f3e25]: "Move a control and LogiSmart re-scores the order: risk, thermal runway, the action that pays and what each choice leaves at stake."
+    - region "Order" [ref=f3e27]:
+      - generic [ref=f3e28]:
+        - heading "Order" [level=2] [ref=f3e29]
+        - button "Load SC-12132" [ref=f3e30] [cursor=pointer]
+      - generic [ref=f3e31]:
+        - generic [ref=f3e32]:
+          - generic [ref=f3e33]: Origin
+          - combobox "Origin" [ref=f3e34]:
+            - option "Antwerp"
+            - option "Bangkok"
+            - option "Busan"
+            - option "Dubai"
+            - option "Frankfurt" [selected]
+            - option "Hamburg"
+            - option "Hong Kong"
+            - option "Jakarta"
+            - option "Johor Bahru"
+            - option "Kuala Lumpur"
+            - option "London"
+            - option "Los Angeles"
+            - option "Marseille"
+            - option "Mumbai"
+            - option "New York"
+            - option "Penang"
+            - option "Rotterdam"
+            - option "Shanghai"
+            - option "Singapore"
+            - option "Sydney"
+            - option "Tokyo"
+        - generic [ref=f3e35]:
+          - generic [ref=f3e36]: Destination
+          - combobox "Destination" [ref=f3e37]:
+            - option "Antwerp"
+            - option "Bangkok"
+            - option "Busan"
+            - option "Dubai"
+            - option "Frankfurt"
+            - option "Hamburg"
+            - option "Hong Kong"
+            - option "Jakarta"
+            - option "Johor Bahru"
+            - option "Kuala Lumpur" [selected]
+            - option "London"
+            - option "Los Angeles"
+            - option "Marseille"
+            - option "Mumbai"
+            - option "New York"
+            - option "Penang"
+            - option "Rotterdam"
+            - option "Shanghai"
+            - option "Singapore"
+            - option "Sydney"
+            - option "Tokyo"
+      - generic [ref=f3e38]:
+        - generic [ref=f3e39]: Mode
+        - group "Transport mode" [ref=f3e41]:
+          - button "Air" [pressed] [ref=f3e42] [cursor=pointer]
+          - button "Road" [ref=f3e43] [cursor=pointer]
+      - generic [ref=f3e44]:
+        - generic [ref=f3e45]: Weather on the route
+        - generic [ref=f3e46]:
+          - group "Weather on the route" [ref=f3e47]:
+            - button "Clear" [ref=f3e48] [cursor=pointer]
+            - button "Rain" [ref=f3e49] [cursor=pointer]
+            - button "Fog" [ref=f3e50] [cursor=pointer]
+            - button "Storm" [pressed] [ref=f3e51] [cursor=pointer]
+            - button "Hurricane" [ref=f3e52] [cursor=pointer]
+          - button "Use live weather" [ref=f3e53] [cursor=pointer]
+      - generic [ref=f3e54]:
+        - generic [ref=f3e55]:
+          - text: Carrier reliability (0 to 1)
+          - status [ref=f3e56]: "0.75"
+        - slider "Carrier reliability (0 to 1)" [ref=f3e57]: "0.75"
+      - generic [ref=f3e58]:
+        - checkbox "Route risk from the World Bank stability index" [checked] [ref=f3e59]
+        - text: Route risk from the World Bank stability index
+      - generic [ref=f3e60]:
+        - generic [ref=f3e61]:
+          - text: Planned lead time (days)
+          - status [ref=f3e62]: 3.0 d
+        - slider "Planned lead time (days)" [ref=f3e63]: "3"
+      - generic [ref=f3e64]:
+        - generic [ref=f3e65]:
+          - text: Trip completed
+          - status [ref=f3e66]: 60%
+        - slider "Trip completed" [ref=f3e67]: "60"
+      - generic [ref=f3e68]:
+        - generic [ref=f3e69]:
+          - text: Thermal buffer left (hours)
+          - status [ref=f3e70]: 12 h
+        - slider "Thermal buffer left (hours)" [ref=f3e71]: "12"
+      - generic [ref=f3e72]:
+        - generic [ref=f3e73]:
+          - text: Cargo value (USD)
+          - status [ref=f3e74]: $850,000
+        - slider "Cargo value (USD)" [ref=f3e75]: "850000"
+      - generic [ref=f3e76]:
+        - generic [ref=f3e77]: Hospital urgency
+        - combobox "Hospital urgency" [ref=f3e78]:
+          - option "Routine Restock"
+          - option "Elevated Procedure"
+          - option "Critical Emergency" [selected]
+  - region "Notifications alt+T"

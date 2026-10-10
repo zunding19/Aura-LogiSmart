@@ -1,0 +1,38 @@
+- generic [ref=f4e3]:
+  - complementary [ref=f4e4]:
+    - generic [ref=f4e5]: LogiSmart
+    - generic [ref=f4e8]: Operations
+    - button "Command map" [ref=f4e9] [cursor=pointer]
+    - button "Alerts inbox 12" [ref=f4e10] [cursor=pointer]:
+      - text: Alerts inbox
+      - generic [ref=f4e11]: "12"
+    - button "Guided response" [ref=f4e12] [cursor=pointer]
+    - button "What-if simulator" [ref=f4e13] [cursor=pointer]
+    - generic [ref=f4e14]: Proof
+    - button "Evidence" [ref=f4e15] [cursor=pointer]
+    - generic [ref=f4e16]:
+      - generic [ref=f4e17]:
+        - generic [ref=f4e18]:
+          - generic [ref=f4e19]: Alert line
+          - status [ref=f4e20]: 60%
+        - slider "Alert line" [ref=f4e21]: "3"
+      - paragraph [ref=f4e22]: 85% of alerts are real, 70% of disruptions caught on 1,000 test shipments.
+      - paragraph [ref=f4e23]: "Lower line: more caught, more false alarms."
+    - paragraph [ref=f4e24]: Shipments, cargo values and thermal buffers are simulated.
+  - main [ref=f4e25]:
+    - generic [ref=f4e26]:
+      - generic [ref=f4e27]: LogiSmart
+      - generic [ref=f4e28]: Simulated shipments
+      - generic [ref=f4e30]: /
+      - generic [ref=f4e31]: Evidence
+      - generic [ref=f4e32]: 244 pharma alerts at the 60% line
+      - generic [ref=f4e33]: /
+      - generic [ref=f4e34]: 77 false alarms per 1,000 tested
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=f4e36]:
+        - button "Close toast" [ref=f4e37] [cursor=pointer]
+        - generic [ref=f4e44]:
+          - generic [ref=f4e45]: "SC-12132: SLA breach notice issued"
+          - generic [ref=f4e46]: Dubai to Shanghai by air
+        - button "Respond" [ref=f4e47] [cursor=pointer]

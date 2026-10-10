@@ -1,0 +1,105 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]: aura
+      - button "Command map" [ref=e8] [cursor=pointer]
+      - button "Alerts inbox 11" [ref=e9] [cursor=pointer]:
+        - text: Alerts inbox
+        - generic [ref=e10]: "11"
+      - button "Guided response" [ref=e11] [cursor=pointer]
+      - button "What-if simulator" [ref=e12] [cursor=pointer]
+      - button "Evidence" [active] [ref=e13] [cursor=pointer]
+    - main [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]: Aura
+        - generic [ref=e17]: Simulated shipments
+        - generic [ref=e19]: /
+        - generic [ref=e20]: Evidence
+        - generic [ref=e21]: 244 pharma alerts at the 60% line
+        - generic [ref=e22]: /
+        - generic [ref=e23]: 77 false alarms per 1,000 tested
+      - heading "How Aura decides, and how often it is right" [level=1] [ref=e893]
+      - paragraph [ref=e894]: Every figure here comes from the trained model and 1,000 held-out simulated shipments. None of it is real shipment data.
+      - generic [ref=e895]:
+        - generic [ref=e896]:
+          - generic [ref=e897]: "01"
+          - generic [ref=e898]: Detect
+          - generic [ref=e899]: 5,000
+          - paragraph [ref=e900]: simulated shipments scored from 0 to 100% disruption risk.
+        - generic [ref=e901]:
+          - generic [ref=e902]: "02"
+          - generic [ref=e903]: Categorize
+          - generic [ref=e904]: 1,006
+          - paragraph [ref=e905]: pharmaceutical shipments, each tagged as delay, cold-chain excursion or both.
+        - generic [ref=e906]:
+          - generic [ref=e907]: "03"
+          - generic [ref=e908]: Prioritize
+          - generic [ref=e909]: "244"
+          - paragraph [ref=e910]: air and road alerts at the 60% line, ranked. SC-12132 is first.
+        - generic [ref=e911]:
+          - generic [ref=e912]: "04"
+          - generic [ref=e913]: Explain
+          - generic [ref=e914]: "3"
+          - paragraph [ref=e915]: top drivers per shipment, in plain words with a what-if for each.
+        - generic [ref=e916]:
+          - generic [ref=e917]: "05"
+          - generic [ref=e918]: Decide
+          - generic [ref=e919]: "6"
+          - paragraph [ref=e920]: costed actions. The one with the highest net saving is recommended.
+      - generic [ref=e921]:
+        - generic [ref=e922]:
+          - heading "1,000 test shipments at the 60% alert line" [level=2] [ref=e923]
+          - paragraph [ref=e924]: One square is one shipment the model never saw in training. Move the alert line in the sidebar to see the trade.
+          - img "431 disruptions caught, 77 false alarms, 182 missed, 310 correctly left alone" [ref=e925]
+          - generic [ref=e1926]:
+            - generic [ref=e1927]:
+              - generic [ref=e1929]: Disruptions caught
+              - generic [ref=e1930]: "431"
+            - generic [ref=e1931]:
+              - generic [ref=e1933]: False alarms
+              - generic [ref=e1934]: "77"
+            - generic [ref=e1935]:
+              - generic [ref=e1937]: Disruptions missed
+              - generic [ref=e1938]: "182"
+            - generic [ref=e1939]:
+              - generic [ref=e1941]: Correctly left alone
+              - generic [ref=e1942]: "310"
+        - generic [ref=e1943]:
+          - generic [ref=e1944]:
+            - heading "Fewer false alarms" [level=2] [ref=e1945]
+            - paragraph [ref=e1946]: Against flagging every shipment, which is what a cautious team does today.
+            - generic [ref=e1948]:
+              - generic [ref=e1949]: Aura at 60%
+              - generic [ref=e1950]: "77"
+            - generic [ref=e1994]:
+              - generic [ref=e1995]: Flag everything
+              - generic [ref=e1996]: "387"
+            - generic [ref=e2039]:
+              - generic [ref=e2040]:
+                - generic [ref=e2041]: Precision
+                - generic [ref=e2042]: 85%
+                - generic [ref=e2043]: of alerts are real
+              - generic [ref=e2044]:
+                - generic [ref=e2045]: Recall
+                - generic [ref=e2046]: 70%
+                - generic [ref=e2047]: of disruptions caught
+              - generic [ref=e2048]:
+                - generic [ref=e2049]: ROC AUC
+                - generic [ref=e2050]: "0.83"
+                - generic [ref=e2051]: ranking quality
+            - paragraph [ref=e2052]: "At the default 60% line recall is about 7 in 10: it averages 69% over 30 random splits."
+          - generic [ref=e2053]:
+            - heading "A decision for every alert" [level=2] [ref=e2054]
+            - paragraph [ref=e2055]: Best action across the 508 test alerts at the 60% line. Aura says keep monitoring when no action pays.
+            - generic [ref=e2057]:
+              - generic [ref=e2058]: Keep monitoring
+              - generic [ref=e2059]: "271"
+            - generic [ref=e2103]:
+              - generic [ref=e2104]: Move to next direct flight
+              - generic [ref=e2105]: "128"
+            - generic [ref=e2149]:
+              - generic [ref=e2150]: Refrigerated ground transport
+              - generic [ref=e2151]: "109"
+      - paragraph [ref=e2194]: "Assumptions: a disruption costs 10% of cargo value; cargo values, thermal buffers and urgency tiers are simulated; action fees are example figures."
+    - region "Notifications alt+T"
+  - generic [aria-hidden] [ref=e627]: Move to next available direct flight

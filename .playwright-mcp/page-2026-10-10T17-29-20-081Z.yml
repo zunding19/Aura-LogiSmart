@@ -1,0 +1,25 @@
+- generic [ref=f5e3]:
+  - complementary [ref=f5e4]:
+    - generic [ref=f5e5]: LogiSmart
+    - generic [ref=f5e8]: Operations
+    - button "Command map" [ref=f5e9] [cursor=pointer]
+    - button "Alerts inbox" [ref=f5e10] [cursor=pointer]
+    - button "Guided response" [ref=f5e11] [cursor=pointer]
+    - button "What-if simulator" [ref=f5e12] [cursor=pointer]
+    - generic [ref=f5e13]: Proof
+    - button "Evidence" [ref=f5e14] [cursor=pointer]
+    - generic [ref=f5e15]:
+      - generic [ref=f5e16]:
+        - generic [ref=f5e17]:
+          - generic [ref=f5e18]: Alert line
+          - status [ref=f5e19]: 60%
+        - slider "Alert line" [ref=f5e20]: "3"
+      - paragraph [ref=f5e21]: "Lower line: more caught, more false alarms."
+    - paragraph [ref=f5e22]: Shipments, cargo values and thermal buffers are simulated.
+  - main [ref=f5e23]:
+    - generic [ref=f5e24]:
+      - generic [ref=f5e25]: LogiSmart
+      - generic [ref=f5e26]: Simulated shipments
+      - generic [ref=f5e28]: /
+      - generic [ref=f5e29]: Guided response
+  - region "Notifications alt+T"

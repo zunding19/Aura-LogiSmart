@@ -1,0 +1,208 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]: aura
+      - button "Command map" [ref=e8] [cursor=pointer]
+      - button "Alerts inbox 11" [ref=e9] [cursor=pointer]:
+        - text: Alerts inbox
+        - generic [ref=e10]: "11"
+      - button "Guided response" [ref=e11] [cursor=pointer]
+      - button "What-if simulator" [active] [ref=e12] [cursor=pointer]
+      - button "Evidence" [ref=e13] [cursor=pointer]
+    - main [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]: Aura
+        - generic [ref=e17]: Simulated shipments
+        - generic [ref=e19]: /
+        - generic [ref=e20]: What-if simulator
+        - generic [ref=e21]: 244 pharma alerts at the 60% line
+        - generic [ref=e22]: /
+        - generic [ref=e23]: 77 false alarms per 1,000 tested
+      - heading "What if the order changes?" [level=1] [ref=e628]
+      - paragraph [ref=e629]: "Move a control and Aura re-scores the order: risk, thermal runway, the action that pays and what each choice leaves at stake."
+      - generic [ref=e630]:
+        - region "Order" [ref=e631]:
+          - generic [ref=e632]:
+            - heading "Order" [level=2] [ref=e633]
+            - button "Load SC-12132" [ref=e634] [cursor=pointer]
+          - generic [ref=e635]:
+            - generic [ref=e636]:
+              - generic [ref=e637]: Origin
+              - combobox "Origin" [ref=e638]:
+                - option "Antwerp"
+                - option "Bangkok"
+                - option "Busan"
+                - option "Dubai"
+                - option "Frankfurt" [selected]
+                - option "Hamburg"
+                - option "Hong Kong"
+                - option "Jakarta"
+                - option "Johor Bahru"
+                - option "Kuala Lumpur"
+                - option "London"
+                - option "Los Angeles"
+                - option "Marseille"
+                - option "Mumbai"
+                - option "New York"
+                - option "Penang"
+                - option "Rotterdam"
+                - option "Shanghai"
+                - option "Singapore"
+                - option "Sydney"
+                - option "Tokyo"
+            - generic [ref=e639]:
+              - generic [ref=e640]: Destination
+              - combobox "Destination" [ref=e641]:
+                - option "Antwerp"
+                - option "Bangkok"
+                - option "Busan"
+                - option "Dubai"
+                - option "Frankfurt"
+                - option "Hamburg"
+                - option "Hong Kong"
+                - option "Jakarta"
+                - option "Johor Bahru"
+                - option "Kuala Lumpur" [selected]
+                - option "London"
+                - option "Los Angeles"
+                - option "Marseille"
+                - option "Mumbai"
+                - option "New York"
+                - option "Penang"
+                - option "Rotterdam"
+                - option "Shanghai"
+                - option "Singapore"
+                - option "Sydney"
+                - option "Tokyo"
+          - generic [ref=e642]:
+            - generic [ref=e643]: Mode
+            - group "Transport mode" [ref=e645]:
+              - button "Air" [pressed] [ref=e646] [cursor=pointer]
+              - button "Road" [ref=e647] [cursor=pointer]
+          - generic [ref=e648]:
+            - generic [ref=e649]: Weather on the route
+            - generic [ref=e650]:
+              - group "Weather on the route" [ref=e651]:
+                - button "Clear" [ref=e652] [cursor=pointer]
+                - button "Rain" [ref=e653] [cursor=pointer]
+                - button "Fog" [ref=e654] [cursor=pointer]
+                - button "Storm" [pressed] [ref=e655] [cursor=pointer]
+                - button "Hurricane" [ref=e656] [cursor=pointer]
+              - button "Use live weather" [ref=e657] [cursor=pointer]
+          - generic [ref=e658]:
+            - generic [ref=e659]:
+              - text: Carrier reliability (0 to 1)
+              - status [ref=e660]: "0.75"
+            - slider "Carrier reliability (0 to 1)" [ref=e661]: "0.75"
+          - generic [ref=e662]:
+            - checkbox "Route risk from the World Bank stability index" [checked] [ref=e663]
+            - text: Route risk from the World Bank stability index
+          - generic [ref=e664]:
+            - generic [ref=e665]:
+              - text: Planned lead time (days)
+              - status [ref=e666]: 3.0 d
+            - slider "Planned lead time (days)" [ref=e667]: "3"
+          - generic [ref=e668]:
+            - generic [ref=e669]:
+              - text: Trip completed
+              - status [ref=e670]: 60%
+            - slider "Trip completed" [ref=e671]: "60"
+          - generic [ref=e672]:
+            - generic [ref=e673]:
+              - text: Thermal buffer left (hours)
+              - status [ref=e674]: 12 h
+            - slider "Thermal buffer left (hours)" [ref=e675]: "12"
+          - generic [ref=e676]:
+            - generic [ref=e677]:
+              - text: Cargo value (USD)
+              - status [ref=e678]: $850,000
+            - slider "Cargo value (USD)" [ref=e679]: "850000"
+          - generic [ref=e680]:
+            - generic [ref=e681]: Hospital urgency
+            - combobox "Hospital urgency" [ref=e682]:
+              - option "Routine Restock"
+              - option "Elevated Procedure"
+              - option "Critical Emergency" [selected]
+        - generic [ref=e683]:
+          - region "Scenario result" [ref=e684]:
+            - generic [ref=e685]: Disruption risk
+            - generic [ref=e686]:
+              - generic [ref=e687]:
+                - generic [ref=e690]:
+                  - generic [ref=e691]: "7"
+                  - generic [ref=e693]: "7"
+                - generic [ref=e695]: "%"
+              - generic [ref=e698]: High
+              - generic [ref=e700]: Delay leading to cold-chain excursion
+            - img "Disruption risk 77 percent" [ref=e701]
+            - generic [ref=e705]:
+              - generic [ref=e706]: 0%
+              - generic [ref=e707]: Alert line 60%
+              - generic [ref=e708]: 100%
+            - generic [ref=e709]:
+              - generic [ref=e710]:
+                - generic [ref=e711]:
+                  - generic [ref=e712]: Thermal runway
+                  - generic [ref=e713]: 16.8 h short
+                  - generic [ref=e714]: 28.8 h still to go
+                - generic [ref=e715]:
+                  - generic [ref=e716]: Expected loss
+                  - generic [ref=e717]: $65,684
+                  - generic [ref=e718]: if nothing is done
+                - generic [ref=e719]:
+                  - generic [ref=e720]: Best action
+                  - generic [ref=e721]: Move to next available direct flight
+                  - generic [ref=e722]: net saving $39,713
+              - generic [ref=e724]:
+                - text: "Buffer gap: Hub refrigerant refresh (re-icing)"
+                - paragraph [ref=e725]: "Cheapest action that makes the buffer cover the trip: $120 fee, runway 31.2 h spare."
+          - generic [ref=e726]:
+            - heading "What each choice leaves at stake" [level=2] [ref=e727]
+            - paragraph [ref=e728]: Grey is expected loss after the action, the dark tip is its fee. Teal is the cheapest total.
+            - application [ref=e731]:
+              - generic [ref=e779]:
+                - generic [ref=e780]:
+                  - generic [ref=e781]: $0
+                  - generic [ref=e783]: $20k
+                  - generic [ref=e785]: $40k
+                  - generic [ref=e787]: $60k
+                  - generic [ref=e789]: $80k
+                - generic [ref=e791]: Expected loss plus fee (USD)
+                - generic [ref=e792]:
+                  - generic [ref=e793]: Move to next available direct flight
+                  - generic [ref=e795]: Assign refrigerated ground transport
+                  - generic [ref=e797]: Keep monitoring
+                  - generic [ref=e799]: Hub refrigerant refresh (re-icing)
+                  - generic [ref=e801]: Prioritise immediate cold-storage transfer
+                - generic [ref=e803]:
+                  - generic [ref=e804]: $25,972
+                  - generic [ref=e805]: $63,027
+                  - generic [ref=e806]: $65,684
+                  - generic [ref=e807]: $65,804
+                  - generic [ref=e808]: $65,884
+          - generic [ref=e809]:
+            - heading "Same order, five skies" [level=2] [ref=e810]
+            - generic [ref=e811]:
+              - generic [ref=e812]:
+                - generic [ref=e813]: Clear
+                - generic [ref=e814]: 32%
+              - generic [ref=e827]:
+                - generic [ref=e828]: Rain
+                - generic [ref=e829]: 36%
+              - generic [ref=e842]:
+                - generic [ref=e843]: Fog
+                - generic [ref=e844]: 44%
+              - generic [ref=e857]:
+                - generic [ref=e858]: Storm
+                - generic [ref=e859]: 77%
+              - generic [ref=e872]:
+                - generic [ref=e873]: Hurricane
+                - generic [ref=e874]: 99%
+          - paragraph [ref=e887]: "What Aura assumed:"
+          - list [ref=e888]:
+            - listitem [ref=e889]: Assumed pharmaceuticals.
+            - listitem [ref=e890]: Estimated from the two places (straight line, stretched for the transport mode).
+            - listitem [ref=e891]: World Bank political stability index 2025 for Germany, the less stable end of the route, converted to a 0 to 10 risk score. A yearly figure, not a live feed.
+            - listitem [ref=e892]: Usual storage for Pharmaceuticals.
+    - region "Notifications alt+T"
+  - generic [aria-hidden] [ref=e627]: Move to next available direct flight

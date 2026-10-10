@@ -1,0 +1,15 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]: LogiSmart
+    - button "Command map" [ref=e8] [cursor=pointer]
+    - button "Alerts inbox" [ref=e9] [cursor=pointer]
+    - button "Guided response" [ref=e10] [cursor=pointer]
+    - button "What-if simulator" [ref=e11] [cursor=pointer]
+    - button "Evidence" [ref=e12] [cursor=pointer]
+  - main [ref=e13]:
+    - generic [ref=e14]:
+      - generic [ref=e15]: LogiSmart
+      - generic [ref=e16]: Simulated shipments
+      - generic [ref=e18]: /
+      - generic [ref=e19]: Command map
+  - region "Notifications alt+T" [ref=e21]

@@ -1,0 +1,152 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]: aura
+    - button "Command map" [ref=e8] [cursor=pointer]
+    - button "Alerts inbox 11" [ref=e9] [cursor=pointer]:
+      - text: Alerts inbox
+      - generic [ref=e10]: "11"
+    - button "Guided response" [ref=e11] [cursor=pointer]
+    - button "What-if simulator" [ref=e12] [cursor=pointer]
+    - button "Evidence" [ref=e13] [cursor=pointer]
+  - main [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]: Aura
+      - generic [ref=e17]: Simulated shipments
+      - generic [ref=e19]: /
+      - generic [ref=e20]: Command map
+      - generic [ref=e21]: 244 pharma alerts at the 60% line
+      - generic [ref=e22]: /
+      - generic [ref=e23]: 77 false alarms per 1,000 tested
+    - heading "Which shipment needs you first" [level=1] [ref=e24]
+    - paragraph [ref=e25]: The ten most urgent pharmaceutical shipments, ranked by risk, cargo value, hospital urgency and hours of thermal buffer left. Pick one on the map or in the queue.
+    - generic [ref=e26]:
+      - generic [ref=e28]:
+        - heading "Live routes" [level=2] [ref=e29]
+        - paragraph [ref=e30]: Squares mark shipments. Red is critical (80% and above), amber is high. Click a square to select it.
+        - group "Map of the ten most urgent shipment routes" [ref=e31]:
+          - generic [ref=e43]: Dubai
+          - generic [ref=e46]: Shanghai
+          - generic [ref=e49]: Singapore
+          - generic [ref=e52]: Hamburg
+          - generic [ref=e55]: Antwerp
+          - generic [ref=e58]: Los Angeles
+          - generic [ref=e61]: Rotterdam
+          - generic [ref=e64]: Busan
+          - button "SC-12132, Dubai to Shanghai, 99% risk" [ref=e67] [cursor=pointer]
+          - button "SC-14451, Dubai to Singapore, 99% risk" [ref=e70] [cursor=pointer]
+          - button "SC-10206, Shanghai to Hamburg, 100% risk" [ref=e73] [cursor=pointer]
+          - button "SC-12668, Dubai to Antwerp, 83% risk" [ref=e76] [cursor=pointer]
+          - button "SC-12138, Los Angeles to Rotterdam, 89% risk" [ref=e79] [cursor=pointer]
+          - button "SC-12285, Hamburg to Rotterdam, 99% risk" [ref=e82] [cursor=pointer]
+          - button "SC-14342, Dubai to Antwerp, 100% risk" [ref=e85] [cursor=pointer]
+          - button "SC-13411, Antwerp to Shanghai, 77% risk" [ref=e88] [cursor=pointer]
+          - button "SC-13003, Singapore to Busan, 99% risk" [ref=e91] [cursor=pointer]
+          - button "SC-14123, Busan to Hamburg, 70% risk" [ref=e94] [cursor=pointer]
+        - paragraph [ref=e97]
+        - generic [ref=e98]:
+          - generic [ref=e99]:
+            - generic [ref=e100]: In the queue
+            - generic [ref=e101]: "244"
+            - generic [ref=e102]: pharma alerts, air and road
+          - generic [ref=e103]:
+            - generic [ref=e104]: Expected loss, top 10
+            - generic [ref=e105]: $1.7M
+            - generic [ref=e106]: risk x 10% of cargo value
+          - generic [ref=e107]:
+            - generic [ref=e108]: Buffer ends early
+            - generic [ref=e109]: 3 of 10
+            - generic [ref=e110]: before the shipment arrives
+          - generic [ref=e111]:
+            - generic [ref=e112]: SLA notices
+            - generic [ref=e113]: "1"
+            - generic [ref=e114]: escrow locked (simulated)
+      - generic [ref=e115]:
+        - heading "Triage queue" [level=2] [ref=e116]
+        - paragraph [ref=e117]: Most urgent first.
+        - generic [ref=e118]:
+          - generic [ref=e119]: "01"
+          - generic [ref=e120]:
+            - generic [ref=e121]: SC-12132
+            - generic [ref=e122]: Dubai to Shanghai · Air · Hurricane
+            - generic [ref=e123]:
+              - text: $3.0M · Critical Emergency ·
+              - generic [ref=e124]: runway 7.4 h short
+          - generic [ref=e125]: 99%
+          - button "Open" [ref=e138] [cursor=pointer]
+        - generic [ref=e139]:
+          - generic [ref=e140]: "02"
+          - generic [ref=e141]:
+            - generic [ref=e142]: SC-14451
+            - generic [ref=e143]: Dubai to Singapore · Air · Hurricane
+            - generic [ref=e144]:
+              - text: $1.5M · Critical Emergency ·
+              - generic [ref=e145]: runway 9.5 h short
+          - generic [ref=e146]: 99%
+          - button "Open" [ref=e159] [cursor=pointer]
+        - generic [ref=e160]:
+          - generic [ref=e161]: "03"
+          - generic [ref=e162]:
+            - generic [ref=e163]: SC-10206
+            - generic [ref=e164]: Shanghai to Hamburg · Road · Hurricane
+            - generic [ref=e165]: $1.4M · Elevated Procedure · powered reefer
+          - generic [ref=e166]: 100%
+          - button "Open" [ref=e179] [cursor=pointer]
+        - generic [ref=e180]:
+          - generic [ref=e181]: "04"
+          - generic [ref=e182]:
+            - generic [ref=e183]: SC-12668
+            - generic [ref=e184]: Dubai to Antwerp · Road · Storm
+            - generic [ref=e185]: $1.8M · Elevated Procedure · powered reefer
+          - generic [ref=e186]: 83%
+          - button "Open" [ref=e199] [cursor=pointer]
+        - generic [ref=e200]:
+          - generic [ref=e201]: "05"
+          - generic [ref=e202]:
+            - generic [ref=e203]: SC-12138
+            - generic [ref=e204]: Los Angeles to Rotterdam · Road · Storm
+            - generic [ref=e205]: $1.0M · Elevated Procedure · powered reefer
+          - generic [ref=e206]: 89%
+          - button "Open" [ref=e219] [cursor=pointer]
+        - generic [ref=e220]:
+          - generic [ref=e221]: "06"
+          - generic [ref=e222]:
+            - generic [ref=e223]: SC-12285
+            - generic [ref=e224]: Hamburg to Rotterdam · Road · Hurricane
+            - generic [ref=e225]: $996,648 · Critical Emergency · powered reefer
+          - generic [ref=e226]: 99%
+          - button "Open" [ref=e239] [cursor=pointer]
+        - generic [ref=e240]:
+          - generic [ref=e241]: "07"
+          - generic [ref=e242]:
+            - generic [ref=e243]: SC-14342
+            - generic [ref=e244]: Dubai to Antwerp · Road · Hurricane
+            - generic [ref=e245]: $1.2M · Elevated Procedure · powered reefer
+          - generic [ref=e246]: 100%
+          - button "Open" [ref=e259] [cursor=pointer]
+        - generic [ref=e260]:
+          - generic [ref=e261]: "08"
+          - generic [ref=e262]:
+            - generic [ref=e263]: SC-13411
+            - generic [ref=e264]: Antwerp to Shanghai · Road · Fog
+            - generic [ref=e265]: $2.1M · Routine Restock · powered reefer
+          - generic [ref=e266]: 77%
+          - button "Open" [ref=e279] [cursor=pointer]
+        - generic [ref=e280]:
+          - generic [ref=e281]: "09"
+          - generic [ref=e282]:
+            - generic [ref=e283]: SC-13003
+            - generic [ref=e284]: Singapore to Busan · Air · Hurricane
+            - generic [ref=e285]:
+              - text: $4.4M · Routine Restock ·
+              - generic [ref=e286]: runway 38.6 h short
+          - generic [ref=e287]: 99%
+          - button "Open" [ref=e300] [cursor=pointer]
+        - generic [ref=e301]:
+          - generic [ref=e302]: "10"
+          - generic [ref=e303]:
+            - generic [ref=e304]: SC-14123
+            - generic [ref=e305]: Busan to Hamburg · Road · Fog
+            - generic [ref=e306]: $1.2M · Elevated Procedure · powered reefer
+          - generic [ref=e307]: 70%
+          - button "Open" [ref=e320] [cursor=pointer]
+  - region "Notifications alt+T"
