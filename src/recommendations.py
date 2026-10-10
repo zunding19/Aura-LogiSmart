@@ -1,4 +1,4 @@
-"""Notebook 05 action scenarios; fees, simulated cargo and 10% loss are assumptions."""
+"""Action scenarios, kept in step with notebook 05; fees, effects and 10% loss are assumptions."""
 import math
 from collections.abc import Mapping
 
@@ -9,9 +9,11 @@ from src.preprocessing import (
     ShipmentValidationError,
     prepare_prediction_inputs,
 )
+from src.protocols import find_corrective_proof
 from src.schema import TARGET_COLUMN, WEATHER_SEVERITY
 
 ALERT_LINE, LOSS_SHARE = .60, .10
+SLA_RISK_LINE, SLA_BUFFER_HOURS = .80, 3.0
 
 SLOWDOWN = {
     "Clear": 1.0,
@@ -21,37 +23,62 @@ SLOWDOWN = {
     "Hurricane": 8.0,
 }
 
+# kind says what an action changes: the risk score, the thermal runway, both or neither.
 _DEFINITIONS = [
-    ("monitor", "No action", {}, 0),
+    (
+        "monitor",
+        "Keep monitoring",
+        {},
+        0,
+        "watch",
+        "No spend. Score the shipment again when the weather, "
+        "the hours elapsed or the buffer change.",
+    ),
+    (
+        "cold_storage_transfer",
+        "Prioritise immediate cold-storage transfer",
+        {"buffer_hours": 24},
+        200,
+        "thermal",
+        "Moves the cargo into the hub cold room, which adds about "
+        "24 hours of thermal runway. The disruption risk stays the same.",
+    ),
+    (
+        "direct_flight",
+        "Move to next available direct flight",
+        {"weather_at_worst": "Rain", "risk_cap": 3.0},
+        450,
+        "risk",
+        "Skips the stopover, so the shipment avoids the worst weather "
+        "and the high-risk corridor, and the trip gets shorter.",
+    ),
     (
         "refrigerant_refresh",
-        "Replenish dry ice",
-        {"buffer_hours": 24},
-        1500,
+        "Hub refrigerant refresh (re-icing)",
+        {"buffer_hours": 48},
+        120,
+        "thermal",
+        "Hub crew replenishes the coolant, which adds about 48 hours "
+        "of thermal runway. The disruption risk stays the same.",
     ),
     (
-        "carrier_review",
-        "Switch to a top-rated carrier",
-        {"carrier_score": .95},
-        2000,
+        "refrigerated_ground",
+        "Assign refrigerated ground transport",
+        {"carrier_score": .95, "buffer_hours": 72},
+        500,
+        "risk and thermal",
+        "A dedicated temperature-controlled vehicle takes over: "
+        "a dependable carrier and about 72 more hours of thermal runway.",
     ),
     (
-        "route_review",
-        "Reroute off the high-risk corridor",
-        {"risk_cap": 3.0},
-        5000,
-    ),
-    (
-        "carrier_and_route",
-        "Carrier and reroute together",
-        {"carrier_score": .95, "risk_cap": 3.0},
-        7000,
-    ),
-    (
-        "weather_contingency",
-        "Hold or route around the weather",
-        {"weather_at_worst": "Rain"},
-        8000,
+        "stock_diversion",
+        "Hospital emergency stock diversion",
+        {},
+        0,
+        "backup",
+        "Backup plan. A replacement batch is sent from a regional depot "
+        "so the hospital is covered. It does not change this shipment, "
+        "and its cost is not estimated.",
     ),
 ]
 
@@ -61,12 +88,11 @@ ACTION_CATALOG = {
         title=title,
         changes=change,
         cost_usd=float(cost),
-        rationale=(
-            "Notebook 05 hypothetical scenario; "
-            "availability and costs are not independently verified."
-        ),
+        kind=kind,
+        effect=effect,
+        rationale=effect,
     )
-    for key, title, change, cost in _DEFINITIONS
+    for key, title, change, cost, kind, effect in _DEFINITIONS
 }
 
 ACTIONS = ACTION_CATALOG
@@ -204,11 +230,9 @@ def apply_action(
     )
 
     if buffer_hours:
+        # Cargo with no thermal buffer (ambient) has nothing to extend.
         if "Remaining_Buffer_Hours_Simulated" not in changed:
-            raise ShipmentValidationError(
-                "Dry-ice scenario requires "
-                "Remaining_Buffer_Hours_Simulated."
-            )
+            changed["Remaining_Buffer_Hours_Simulated"] = np.nan
 
         changed["Remaining_Buffer_Hours_Simulated"] = (
             changed["Remaining_Buffer_Hours_Simulated"]
@@ -319,13 +343,27 @@ def simulate_intervention(shipment_data, action_id, model):
     from src.features import add_features
 
     featured = add_features(
-        pd.DataFrame([scenario]),
+        pd.DataFrame([original, scenario]),
         config=_config(model),
-    ).iloc[0]
+    )
+
+    # A faster trip shortens the hours still to go in the same proportion;
+    # the share of the trip already completed stays as it was.
+    hours_to_go = featured["hours_to_go"].iloc[0] * (
+        scenario["Lead_Time_Days"] / original["Lead_Time_Days"]
+    )
+    cold_gap = (
+        featured["Remaining_Buffer_Hours_Simulated"].iloc[1] - hours_to_go
+        if "Remaining_Buffer_Hours_Simulated" in featured
+        else np.nan
+    )
 
     context = {
-        name: None if pd.isna(featured[name]) else float(featured[name])
-        for name in ["hours_to_go", "cold_gap_hours"]
+        name: None if pd.isna(value) else round(float(value), 1)
+        for name, value in [
+            ("hours_to_go", hours_to_go),
+            ("cold_gap_hours", cold_gap),
+        ]
     }
 
     return dict(
@@ -346,30 +384,29 @@ def simulate_intervention(shipment_data, action_id, model):
         ),
         assumptions=[
             (
-                "Notebook 05: costs are examples; disruption loss "
-                "is assumed to be 10% of simulated cargo value."
+                "A disruption is assumed to cost 10% of the cargo value. "
+                "Action costs are example figures."
             ),
             (
-                "Carrier floor 0.95, route cap 3, and weather no worse "
-                "than Rain are hypothetical feasible alternatives."
+                "A direct flight leaves rain at worst and a route risk "
+                "of 3 out of 10 at most. It also shortens the trip, so "
+                "the hours still to go shrink in the same proportion."
             ),
             (
-                "Weather scenario also scales full Lead_Time_Days "
-                "by notebook slowdown ratio; "
-                "simulated elapsed time stays fixed."
+                "Refrigerated ground transport counts as a carrier "
+                "with a reliability of 0.95."
             ),
             (
-                "Dry ice adds 24 simulated remaining-buffer hours only; "
-                "it cannot change this disruption model's probability. "
-                "Verify product-compatible coolant."
+                "Cold storage adds 24 hours of thermal runway, re-icing "
+                "48 and refrigerated ground transport 72. More cooling "
+                "does not change the disruption risk, because it does "
+                "not stop a storm or a delay."
             ),
         ],
         note=(
-            "Signed notebook model scenario, not causal effectiveness "
-            "or guaranteed savings. Simulated cold-gap hours "
-            "are not measured temperature. Negative hours_to_go "
-            "means the duration scenario conflicts with simulated "
-            "elapsed history. No action dispatched."
+            "This is the model's estimate of a what-if, not a guaranteed "
+            "saving. Cargo value and thermal runway are simulated. "
+            "No action has been sent to anyone."
         ),
     )
 
@@ -420,16 +457,16 @@ def get_recommended_action(
             ACTION_CATALOG[selected["action_id"]],
             simulation=selected,
             selection_method=(
-                "Notebook 05 maximum assumed net saving; "
-                "no-action wins when alternatives do not pay."
+                "Highest net saving under the stated assumptions; "
+                "keep monitoring wins when no action pays."
             ),
         )
 
     mapping = {
-        "Weather exposure": "weather_contingency",
-        "Carrier reliability": "carrier_review",
-        "Geopolitical exposure": "route_review",
-        "Combined exposure": "carrier_and_route",
+        "Weather exposure": "direct_flight",
+        "Carrier reliability": "refrigerated_ground",
+        "Geopolitical exposure": "direct_flight",
+        "Combined exposure": "direct_flight",
     }
 
     action = (
@@ -455,25 +492,76 @@ def check_sla_status(
     risk_prob,
     buffer_hours=None,
     corrective_proof=False,
+    *,
+    shipment_id=None,
+    custody_records=None,
 ):
-    _finite_number(risk_prob, "risk_prob", maximum=1)
+    """Simulated SLA rule: critical risk and a short buffer lock the carrier's escrow."""
+    probability = _finite_number(risk_prob, "risk_prob", maximum=1)
 
     if not isinstance(corrective_proof, bool):
         raise ShipmentValidationError(
             "corrective_proof must be True or False."
         )
 
+    buffer = (
+        None
+        if buffer_hours is None or _missing(buffer_hours)
+        else _finite_number(buffer_hours, "buffer_hours")
+    )
+
+    proof = (
+        None
+        if shipment_id is None
+        else find_corrective_proof(
+            custody_records, shipment_id, SLA_BUFFER_HOURS
+        )
+    )
+    proven = corrective_proof or proof is not None
+
+    trigger = (
+        probability > SLA_RISK_LINE
+        and buffer is not None
+        and buffer < SLA_BUFFER_HOURS
+    )
+    locked = trigger and not proven
+
+    if locked:
+        status = "SLA breach notice issued. Carrier payout escrow locked."
+    elif trigger:
+        status = "Corrective proof verified. Escrow released."
+    else:
+        status = "Within SLA."
+
     return dict(
-        available=False,
+        available=True,
         target=TARGET_COLUMN,
-        trigger_condition=False,
-        breach_warning=False,
-        simulated_escrow_locked=False,
-        corrective_proof_recorded=corrective_proof,
-        status="Not implemented by notebook 05",
+        trigger_condition=trigger,
+        breach_warning=locked,
+        simulated_escrow_locked=locked,
+        corrective_proof_recorded=proven,
+        corrective_proof=proof,
+        status=status,
+        breach_notice=(
+            dict(
+                shipment_id=shipment_id,
+                text=(
+                    f"Disruption risk is {probability:.0%} and only "
+                    f"{buffer:.1f} hours of thermal buffer remain, with no "
+                    "corrective action recorded. Carrier payout is held "
+                    "until a cold-storage transfer, re-icing or "
+                    "refrigerated transport handshake is logged."
+                ),
+            )
+            if locked
+            else None
+        ),
+        rule=(
+            f"Risk above {SLA_RISK_LINE:.0%} and thermal buffer under "
+            f"{SLA_BUFFER_HOURS:g} hours, with no corrective proof."
+        ),
         note=(
-            "Notebook disruption probability and simulated buffer "
-            "do not establish a medical SLA breach. "
-            "No notices, escrow or payment actions."
+            "Simulation for the demo. No real notice is sent "
+            "and no payment is held."
         ),
     )

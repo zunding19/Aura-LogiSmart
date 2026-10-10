@@ -582,13 +582,13 @@ def test_dry_ice_changes_only_context_and_ambient_actions_work(
     )
 
     assert result["probability_change"] == 0
-    assert result["estimated_net_benefit_usd"] == -1500
+    assert result["estimated_net_benefit_usd"] == -120
     assert (
         result["changed_fields"][
             "Remaining_Buffer_Hours_Simulated"
         ]["after"]
         - cold.Remaining_Buffer_Hours_Simulated
-    ) == 24
+    ) == 48
 
     ambient = shipments[
         shipments.Storage_Standard_Simulated.eq("Ambient")

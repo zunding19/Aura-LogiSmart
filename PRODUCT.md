@@ -26,12 +26,12 @@ Existing cold-chain monitoring reports a breach after it has happened. Aura fore
 
 - Built for Dormathon 2026, Track 1 (Predict Early, Decide Better). Shown as a 3-minute live demo, usually on a projector.
 - Five-step flow: Detect, Categorize, Prioritize, Explain, Decide.
-- Three screens: triage priority queue, single-shipment deep dive with a temperature forecast curve, decision matrix with live risk and savings.
+- Three screens: triage priority queue, single-shipment deep dive with a thermal buffer depletion curve, decision matrix with live risk and savings.
 
 ## Capabilities and Constraints
 
 - Failure probability 0 to 100% with tiers: Low 0-30, Medium 31-60, High 61-80, Critical above 80.
-- Risk categories: Cold-chain excursion, Transport delay, Handover delay, Combined risk. Top 3 drivers only.
+- Risk categories: Cold-chain excursion, Transport delay, or both together (delay leading to cold-chain excursion). Top 3 drivers only.
 - Urgency = P(fail) x cargo value x urgency weight / max(buffer hours, 0.5).
 - Interventions: prioritise cold-storage transfer, move to next direct flight, re-ice at hub, refrigerated ground transport, hospital stock diversion.
 - Missing or invalid input never crashes; show "Insufficient data for reliable prediction".

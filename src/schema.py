@@ -1,6 +1,6 @@
 """Recorded disruption inputs; optional simulated context never enters the model."""
 FEATURE_SCHEMA_VERSION = "aura-notebook-05-v1"
-DATASET_VERSION = "aura-context-v2"
+DATASET_VERSION = "aura-context-v3"
 TARGET_COLUMN = "Disruption_Occurred"
 
 RAW_INPUT_COLUMNS = [

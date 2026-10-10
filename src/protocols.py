@@ -6,6 +6,14 @@ from uuid import uuid4
 from src.preprocessing import ShipmentValidationError
 
 
+# Actions that restore thermal runway. A handshake naming one is corrective proof.
+CORRECTIVE_ACTIONS = {
+    "cold_storage_transfer": "Cold-storage transfer",
+    "refrigerant_refresh": "Re-icing",
+    "refrigerated_ground": "Refrigerated ground transport",
+}
+
+
 def _nonblank_text(value, field: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ShipmentValidationError(
@@ -22,6 +30,7 @@ def record_custody_handshake(
     transfer_point,
     confirmed_by_both,
     records=None,
+    corrective_action=None,
 ) -> dict:
     shipment_id = _nonblank_text(
         shipment_id, "shipment_id"
@@ -72,6 +81,16 @@ def record_custody_handshake(
             "records must be a list when supplied."
         )
 
+    if (
+        corrective_action is not None
+        and corrective_action not in CORRECTIVE_ACTIONS
+    ):
+        raise ShipmentValidationError(
+            "corrective_action must be one of: "
+            + ", ".join(CORRECTIVE_ACTIONS)
+            + "."
+        )
+
     record = {
         "record_id": f"PROTOTYPE-{uuid4().hex}",
         "timestamp_utc": datetime.now(
@@ -83,6 +102,7 @@ def record_custody_handshake(
         "buffer_hours": buffer,
         "transfer_point": transfer_point,
         "confirmed_by_both": True,
+        "corrective_action": corrective_action,
         "record_type": (
             "User-attested local prototype custody record"
         ),
@@ -96,6 +116,30 @@ def record_custody_handshake(
         records.append(dict(record))
 
     return record
+
+
+def find_corrective_proof(records, shipment_id, minimum_buffer_hours):
+    """Latest handshake that names a corrective action and logs enough buffer."""
+    if records is None:
+        return None
+
+    if not isinstance(records, list):
+        raise ShipmentValidationError(
+            "records must be a list when supplied."
+        )
+
+    for record in reversed(records):
+        if (
+            isinstance(record, dict)
+            and record.get("shipment_id") == shipment_id
+            and record.get("confirmed_by_both") is True
+            and record.get("corrective_action") in CORRECTIVE_ACTIONS
+            and isinstance(record.get("buffer_hours"), (int, float))
+            and record["buffer_hours"] >= minimum_buffer_hours
+        ):
+            return record
+
+    return None
 
 
 def export_custody_audit(records) -> str:

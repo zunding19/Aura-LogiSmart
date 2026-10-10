@@ -39,13 +39,17 @@ REEFER_HOLD_HOURS = {
     "-20°C": (6.0, 10.0),
     "Deep Frozen / Dry Ice": (72.0, 100.0),
 }
-AIR_VALUE_USD_PER_KG = {
+# Load weights are whole container loads, so the value per shipment is the
+# reference value per kg scaled down. Air loads are assumed twice as valuable
+# as surface loads of the same weight.
+REFERENCE_VALUE_USD_PER_KG = {
     "Pharmaceuticals": 148.0,
     "Electronics": 481.0,
     "Automotive": 12.0,
     "Textiles": 10.0,
     "Perishables": 4.0,
 }
+VALUE_SCALE_DIVISOR = {"Air": 25.0, "Surface": 50.0}
 URGENCY_TIERS = [
     "Routine Restock", "Elevated Procedure", "Critical Emergency",
 ]
@@ -70,7 +74,8 @@ CONTEXT_PROVENANCE = {
     ),
     "Cargo_Value_USD_Simulated": (
         "Assumed value/kg times recorded metric tonnes times 1000 "
-        "with seeded variation; surface value divided by 50. "
+        "with seeded variation; divided by 25 for air and 50 for surface "
+        "so a shipment is worth thousands to a few million USD. "
         "Not measured cargo value."
     ),
     "Hospital_Urgency_Tier_Simulated": (
@@ -136,9 +141,13 @@ def build(raw, seed=SEED):
     )
 
     per_kg = df["Product_Category"].map(
-        AIR_VALUE_USD_PER_KG
+        REFERENCE_VALUE_USD_PER_KG
     ).to_numpy()
-    per_kg = np.where(by_air, per_kg, per_kg / 50.0)
+    per_kg = np.where(
+        by_air,
+        per_kg / VALUE_SCALE_DIVISOR["Air"],
+        per_kg / VALUE_SCALE_DIVISOR["Surface"],
+    )
     spread = rng.lognormal(mean=0.0, sigma=0.35, size=n)
 
     df["Cargo_Value_USD_Simulated"] = (
