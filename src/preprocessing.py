@@ -1,19 +1,20 @@
-#validate and standardise its contents
+"""Validate inputs without inventing telemetry or outcomes."""
 from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
 
 from src.schema import (
     NUMERIC_COLUMNS,
+    OUTCOME_COLUMNS,
+    RAW_INPUT_COLUMNS,
     SHIPMENT_COLUMNS,
-    STORAGE_STANDARDS,
     TARGET_COLUMN,
     TRANSPORT_MODES,
+    STORAGE_STANDARDS,
     URGENCY_TIERS,
 )
 
@@ -22,321 +23,443 @@ class ShipmentValidationError(ValueError):
     pass
 
 
-def _normalized_name(value: object) -> str:
-    text = unicodedata.normalize("NFKC", str(value)).casefold()
-    return re.sub("[^a-z0-9]+", "", text)
+def _key(value, keep_minus=False):
+    text = unicodedata.normalize(
+        "NFKC", str(value)
+    ).casefold()
+
+    for dash in ("−", "–", "—"):
+        text = text.replace(dash, "-")
+
+    pattern = (
+        r"[^a-z0-9-]+"
+        if keep_minus
+        else r"[^a-z0-9]+"
+    )
+    return re.sub(pattern, "", text)
 
 
-_COLUMN_ALIASES = {
+ALIASES = {
     "Shipment_ID": [
-        "shipment id", "shipment_identifier", "consignment_id"
+        "shipment_identifier",
+        "consignment_id",
     ],
     "Place_of_Origin": [
-        "origin", "origin_location", "shipment_origin"
+        "origin",
+        "origin_location",
+        "shipment_origin",
     ],
     "Place_of_Destination": [
-        "destination", "destination_location", "shipment_destination"
+        "destination",
+        "destination_location",
+        "shipment_destination",
     ],
     "Distance": [
-        "distance_km", "route_distance_km", "distance_in_km"
+        "distance_km",
+        "route_distance_km",
+        "distance_in_km",
     ],
     "Transport_Mode": [
-        "transport mode", "transportation_mode", "shipping_mode"
+        "transportation_mode",
+        "shipping_mode",
     ],
     "Lead-Time in days": [
-        "lead_time_days", "lead_days",
-        "lead_time_in_days", "leadtime_days"
+        "lead_time_days",
+        "lead_days",
+        "lead_time_in_days",
     ],
     "Transit_Duration": [
-        "transit_duration_hours", "transit_hours",
-        "elapsed_transit_hours"
+        "transit_duration_hours",
+        "transit_hours",
+        "estimated_transit_hours",
+        "eta_hours",
     ],
     "Stock_Volume": [
-        "stock_volume", "shipment_volume", "volume"
+        "shipment_volume",
+        "volume",
     ],
     "Geopolitical_Risk": [
-        "geopolitical_risk_score", "geo_risk"
+        "geopolitical_risk_score",
+        "geo_risk",
     ],
     "Fuel_Price_Index": [
-        "fuel_index", "fuel_price_index"
+        "fuel_index",
     ],
     "Carrier_Reliability_Score": [
-        "carrier_reliability", "reliability_score"
+        "carrier_reliability",
+        "reliability_score",
     ],
     "Buffer_of_Package": [
-        "buffer_hours", "package_buffer_hours",
-        "remaining_buffer_hours", "packaging_hold_hours"
+        "buffer_hours",
+        "package_buffer_hours",
+        "packaging_hold_hours",
+        "total_hold_hours",
     ],
     "Storage_standard": [
-        "storage_standard", "storage_requirement",
-        "storage_requirements"
+        "storage_requirement",
+        "storage_requirements",
     ],
     "Cargo_Value_USD": [
-        "cargo_value", "cargo_value_usd", "shipment_value_usd"
+        "cargo_value",
+        "shipment_value_usd",
     ],
     "Hospital_Urgency_Tier": [
-        "urgency_tier", "hospital_urgency", "clinical_urgency"
+        "urgency_tier",
+        "hospital_urgency",
+        "clinical_urgency",
+    ],
+    "Planned_Transit_Hours": [
+        "planned_transit_duration_hours",
+        "planned_hours",
+    ],
+    "Handover_Count": [
+        "handover_count",
+        "handovers",
     ],
     TARGET_COLUMN: [
-        "shipment_failure", "failure",
-        "failure_label", "observed_failure"
+        "failure",
+        "failure_label",
+        "observed_failure",
     ],
 }
 
-_ALIAS_LOOKUP = {
-    _normalized_name(alias): canonical
-    for canonical, aliases in _COLUMN_ALIASES.items()
-    for alias in [canonical, *aliases]
+COLUMN_LOOKUP = {
+    _key(alias): canonical
+    for canonical in SHIPMENT_COLUMNS + OUTCOME_COLUMNS
+    for alias in [
+        canonical,
+        *ALIASES.get(canonical, []),
+    ]
 }
 
 
-def suggest_column_mapping(
-    columns: Iterable[object],
-) -> dict[str, str]:
+def suggest_column_mapping(columns):
     return {
-        str(column): _ALIAS_LOOKUP[_normalized_name(column)]
+        str(column): COLUMN_LOOKUP[_key(column)]
         for column in columns
-        if _normalized_name(column) in _ALIAS_LOOKUP
+        if _key(column) in COLUMN_LOOKUP
     }
 
 
-def normalize_column_names(df: pd.DataFrame) -> pd.DataFrame:
+def normalize_column_names(df):
     if not isinstance(df, pd.DataFrame):
         raise ShipmentValidationError(
-            "Provide shipments as a pandas DataFrame "
-            "or load a CSV with load_shipments()."
+            "Provide a DataFrame or read a CSV "
+            "with read_raw_shipments()."
         )
 
     if df.columns.duplicated().any():
-        duplicates = df.columns[df.columns.duplicated()].tolist()
         raise ShipmentValidationError(
-            f"Duplicate CSV columns: {duplicates}. "
-            "Rename or remove duplicated headers."
+            "Duplicate input headers; keep one column "
+            "for each field."
         )
 
-    renamed = df.rename(
+    result = df.rename(
         columns={
-            column: _ALIAS_LOOKUP.get(
-                _normalized_name(column), column
+            column: COLUMN_LOOKUP.get(
+                _key(column), column
             )
-            for column in df.columns
+            for column in df
         }
     ).copy()
 
-    if renamed.columns.duplicated().any():
-        duplicates = renamed.columns[
-            renamed.columns.duplicated()
-        ].tolist()
+    duplicates = result.columns[
+        result.columns.duplicated()
+    ].tolist()
+
+    if duplicates:
         raise ShipmentValidationError(
-            f"Multiple columns map to the same field: {duplicates}. "
-            "Keep one source column for each field."
+            "Multiple columns map to the same field: "
+            f"{duplicates}."
         )
 
-    return renamed
+    return result
 
 
-def _normalized_category(
-    value: object,
-    preserve_minus: bool = False,
-) -> str:
-    if not preserve_minus:
-        return _normalized_name(value)
-
-    text = unicodedata.normalize("NFKC", str(value)).casefold()
-    for dash in ["−", "–", "—"]:
-        text = text.replace(dash, "-")
-    return re.sub("[^a-z0-9-]+", "", text)
-
-
-def _category_aliases(
-    canonical: list[str],
-    extras: dict[str, list[str]],
-    preserve_minus: bool = False,
-) -> dict[str, str]:
+def _categories(names, extras, keep_minus=False):
     return {
-        _normalized_category(
-            alias, preserve_minus=preserve_minus
-        ): name
-        for name in canonical
-        for alias in [name, *extras.get(name, [])]
+        _key(alias, keep_minus): name
+        for name in names
+        for alias in [
+            name,
+            *extras.get(name, []),
+        ]
     }
 
 
-_CATEGORY_LOOKUPS = {
-    "Transport_Mode": _category_aliases(
+CATEGORY_LOOKUP = {
+    "Transport_Mode": _categories(
         TRANSPORT_MODES,
         {
-            "Air": ["air freight", "airfreight"],
-            "Land": ["road", "ground", "road freight"],
+            "Air": [
+                "air freight",
+                "airfreight",
+            ],
+            "Land": [
+                "road",
+                "ground",
+                "road freight",
+            ],
             "Multi-Modal Air-to-Land": [
-                "air to land", "multimodal",
-                "multi modal", "air-land"
+                "air to land",
+                "multimodal",
+                "multi modal",
+                "air-land",
             ],
         },
     ),
-    "Storage_standard": _category_aliases(
+    "Storage_standard": _categories(
         STORAGE_STANDARDS,
         {
             "2°C to 8°C": [
-                "2-8 C", "2 to 8 C", "2-8°C",
-                "2°C-8°C", "2 to 8°C", "refrigerated", "chilled"
+                "2-8 C",
+                "2 to 8 C",
+                "2-8°C",
+                "2°C-8°C",
+                "2 to 8°C",
+                "refrigerated",
+                "chilled",
             ],
             "-20°C": [
-                "-20 C", "-20", "minus 20 C",
-                "frozen -20 C", "negative 20 C"
+                "-20 C",
+                "-20",
+                "minus 20 C",
+                "frozen -20 C",
+                "negative 20 C",
             ],
             "Deep Frozen / Dry Ice": [
-                "deep frozen", "dry ice", "deep-frozen dry-ice"
+                "deep frozen",
+                "dry ice",
+                "deep-frozen dry-ice",
             ],
         },
-        preserve_minus=True,
+        keep_minus=True,
     ),
-    "Hospital_Urgency_Tier": _category_aliases(
+    "Hospital_Urgency_Tier": _categories(
         URGENCY_TIERS,
         {
-            "Routine Restock": ["routine", "restock"],
-            "Elevated Procedure": ["elevated"],
-            "Critical Emergency": ["critical", "emergency"],
+            "Routine Restock": [
+                "routine",
+                "restock",
+            ],
+            "Elevated Procedure": [
+                "elevated",
+            ],
+            "Critical Emergency": [
+                "critical",
+                "emergency",
+                "Critical Emergency / Direct Patient Treatment",
+            ],
         },
     ),
 }
 
 
-def _bad_rows(mask: pd.Series) -> str:
-    positions = np.flatnonzero(
-        np.asarray(mask, dtype=bool)
-    )[:5] + 1
-    suffix = " ..." if int(mask.sum()) > 5 else ""
-    return ", ".join(
-        str(int(position)) for position in positions
-    ) + suffix
+def _numbers(series):
+    unsupported = series.map(
+        lambda value: isinstance(
+            value,
+            (
+                bool,
+                np.bool_,
+                complex,
+                np.complexfloating,
+            ),
+        )
+    )
+
+    return pd.to_numeric(
+        series.where(~unsupported, np.nan),
+        errors="coerce",
+    ).astype(float)
+
+
+def _rows(mask):
+    positions = (
+        np.flatnonzero(
+            mask.to_numpy(dtype=bool)
+        )[:5] + 1
+    )
+    return ", ".join(map(str, positions))
 
 
 def clean_raw_shipment_data(
-    df: pd.DataFrame,
-    require_target: bool = False,
-) -> pd.DataFrame:
-    cleaned = normalize_column_names(df)
-    required = SHIPMENT_COLUMNS + (
-        [TARGET_COLUMN] if require_target else []
+    df,
+    require_target=False,
+    require_processed=True,
+):
+    """Transit is TOTAL-trip ETA; buffer is TOTAL hold capacity."""
+    result = normalize_column_names(df)
+
+    required = list(
+        SHIPMENT_COLUMNS
+        if require_processed
+        else RAW_INPUT_COLUMNS
     )
+
+    if require_target:
+        required.append(TARGET_COLUMN)
+
     missing = [
-        column for column in required
-        if column not in cleaned.columns
+        column
+        for column in required
+        if column not in result
     ]
 
     if missing:
         raise ShipmentValidationError(
             "Missing required shipment fields: "
             + ", ".join(missing)
-            + ". Map your CSV headers to the documented schema; "
-            "supply actual values with the documented units."
+            + ". Check schema and units."
         )
 
-    if cleaned.empty:
+    if result.empty:
         raise ShipmentValidationError(
-            "No shipment rows were supplied. "
-            "Upload a CSV containing at least one shipment."
+            "No shipment rows were supplied."
         )
 
-    problems = []
+    errors = []
 
     for column in [
-        "Shipment_ID", "Place_of_Origin", "Place_of_Destination"
+        "Shipment_ID",
+        "Place_of_Origin",
+        "Place_of_Destination",
     ]:
-        missing_text = (
-            cleaned[column].isna()
-            | cleaned[column].astype(str).str.strip().eq("")
+        invalid = (
+            result[column].isna()
+            | result[column]
+            .astype(str)
+            .str.strip()
+            .eq("")
         )
-        if missing_text.any():
-            problems.append(
-                f"{column}: missing text at data rows "
-                f"{_bad_rows(missing_text)}"
-            )
-        cleaned[column] = (
-            cleaned[column].astype("string").str.strip()
-        )
-
-    for column in NUMERIC_COLUMNS:
-        unsupported = cleaned[column].map(
-            lambda value: isinstance(
-                value,
-                (bool, np.bool_, complex, np.complexfloating),
-            )
-        )
-        values = pd.to_numeric(
-            cleaned[column].where(~unsupported, np.nan),
-            errors="coerce",
-        )
-        finite = pd.Series(
-            np.isfinite(
-                values.to_numpy(dtype=float, na_value=np.nan)
-            ),
-            index=cleaned.index,
-        )
-        invalid = ~finite
-
-        if column in {"Lead-Time in days", "Fuel_Price_Index"}:
-            invalid |= values <= 0
-            expected = "a finite number greater than 0"
-        elif column == "Geopolitical_Risk":
-            invalid |= (values < 0) | (values > 10)
-            expected = "a finite score from 0 to 10"
-        elif column == "Carrier_Reliability_Score":
-            invalid |= (values < 0) | (values > 1)
-            expected = "a finite score from 0 to 1"
-        else:
-            invalid |= values < 0
-            expected = "a finite number greater than or equal to 0"
 
         if invalid.any():
-            problems.append(
-                f"{column}: expected {expected}; "
-                f"invalid data rows {_bad_rows(invalid)}"
+            errors.append(
+                f"{column}: missing text "
+                f"at data rows {_rows(invalid)}"
             )
 
-        cleaned[column] = values.astype(float)
+        result[column] = (
+            result[column]
+            .astype("string")
+            .str.strip()
+        )
 
-    for column, lookup in _CATEGORY_LOOKUPS.items():
-        mapped = cleaned[column].map(
+    numeric_fields = [
+        column
+        for column in NUMERIC_COLUMNS + [
+            "Actual_Transit_Hours"
+        ]
+        if column in result
+    ]
+
+    for column in numeric_fields:
+        values = _numbers(result[column])
+
+        invalid = ~pd.Series(
+            np.isfinite(values.to_numpy()),
+            index=result.index,
+        )
+
+        if column in {
+            "Lead-Time in days",
+            "Fuel_Price_Index",
+            "Planned_Transit_Hours",
+        }:
+            invalid |= values <= 0
+            rule = "finite and greater than zero"
+
+        elif column in {
+            "Geopolitical_Risk",
+            "Carrier_Reliability_Score",
+        }:
+            upper = (
+                10
+                if column == "Geopolitical_Risk"
+                else 1
+            )
+            invalid |= (
+                (values < 0)
+                | (values > upper)
+            )
+            rule = f"finite, between 0 and {upper}"
+
+        else:
+            invalid |= values < 0
+            rule = "finite and nonnegative"
+
+        if column in {
+            "Stock_Volume",
+            "Handover_Count",
+        }:
+            invalid |= (
+                (values % 1 != 0)
+                | (values >= float(2**63))
+            )
+            rule += ", whole integers below 2**63"
+
+        if invalid.any():
+            errors.append(
+                f"{column}: expected {rule}; "
+                f"invalid data rows {_rows(invalid)}"
+            )
+
+        if (
+            column in {"Stock_Volume", "Handover_Count"}
+            and not invalid.any()
+        ):
+            result[column] = values.astype("int64")
+        else:
+            result[column] = values
+
+    for column, lookup in CATEGORY_LOOKUP.items():
+        values = result[column].map(
             lambda value: lookup.get(
-                _normalized_category(
+                _key(
                     value,
-                    preserve_minus=column == "Storage_standard",
+                    column == "Storage_standard",
                 )
             )
         )
-        invalid = mapped.isna()
+        invalid = values.isna()
 
         if invalid.any():
-            allowed = list(dict.fromkeys(lookup.values()))
-            problems.append(
-                f"{column}: choose one of {allowed}; "
-                f"invalid data rows {_bad_rows(invalid)}"
+            allowed = list(
+                dict.fromkeys(lookup.values())
+            )
+            errors.append(
+                f"{column}: expected one of {allowed}; "
+                f"invalid data rows {_rows(invalid)}"
             )
 
-        cleaned[column] = mapped
+        result[column] = values
 
-    if TARGET_COLUMN in cleaned.columns:
-        target = pd.to_numeric(
-            cleaned[TARGET_COLUMN], errors="coerce"
+    binary_fields = [
+        column
+        for column in OUTCOME_COLUMNS
+        if (
+            column != "Actual_Transit_Hours"
+            and column in result
         )
-        invalid = ~target.isin([0, 1])
+    ]
+
+    for column in binary_fields:
+        values = _numbers(result[column])
+        invalid = ~values.isin([0, 1])
 
         if invalid.any():
-            problems.append(
-                f"{TARGET_COLUMN}: expected observed binary labels "
-                f"0 or 1; invalid data rows {_bad_rows(invalid)}. "
-                "For inference-only data, remove the target column "
-                "rather than inventing labels"
+            errors.append(
+                f"{column}: expected supplied binary labels "
+                f"0/1 at rows {_rows(invalid)}; "
+                "never invent missing outcomes"
             )
         else:
-            cleaned[TARGET_COLUMN] = target.astype(int)
+            result[column] = values.astype(int)
 
-    if problems:
+    if errors:
         raise ShipmentValidationError(
             "Shipment validation failed:\n- "
-            + "\n- ".join(problems)
+            + "\n- ".join(errors)
         )
 
-    return cleaned
+    return result

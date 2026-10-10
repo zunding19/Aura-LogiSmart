@@ -1,8 +1,5 @@
-#caulculate inputs for the model
-from __future__ import annotations
-
+"""ETA features excluding outcomes, identifiers and financial urgency."""
 import numpy as np
-import pandas as pd
 
 from src.preprocessing import (
     ShipmentValidationError,
@@ -10,57 +7,79 @@ from src.preprocessing import (
 )
 from src.schema import (
     MODEL_FEATURE_COLUMNS,
-    MODEL_CATEGORICAL_COLUMNS,
     MODEL_NUMERIC_COLUMNS,
+    MODEL_CATEGORICAL_COLUMNS,
 )
 
 
-def extract_features(clean_df: pd.DataFrame) -> pd.DataFrame:
-    shipments = clean_raw_shipment_data(clean_df)
+def extract_features(clean_df):
+    df = clean_raw_shipment_data(
+        clean_df
+    )
 
-    features = shipments[
+    features = df[
         [
             column
             for column in (
                 MODEL_NUMERIC_COLUMNS
                 + MODEL_CATEGORICAL_COLUMNS
             )
-            if column in shipments.columns
+            if column in df
         ]
     ].copy()
 
     with np.errstate(
-        over="ignore", invalid="ignore", divide="ignore"
+        over="ignore",
+        invalid="ignore",
+        divide="ignore",
     ):
-        sla_hours = shipments["Lead-Time in days"] * 24.0
-        remaining = (
-            sla_hours - shipments["Transit_Duration"]
-        ).clip(lower=0.0)
+        eta = df["Transit_Duration"]
+        planned = df["Planned_Transit_Hours"]
+        deadline = (
+            df["Lead-Time in days"] * 24
+        )
+        hold = df["Buffer_of_Package"]
 
-        features["remaining_sla_hours"] = remaining
-        features["thermal_margin_to_deadline"] = (
-            shipments["Buffer_of_Package"] - remaining
+        features["known_delay_hours"] = (
+            eta - planned
         )
-        features["elapsed_sla_ratio"] = (
-            shipments["Transit_Duration"]
-            / sla_hours.clip(lower=0.5)
+
+        features["deadline_margin_hours"] = (
+            deadline - eta
         )
-        features["buffer_to_deadline_ratio"] = (
-            shipments["Buffer_of_Package"]
-            / remaining.clip(lower=0.5)
+
+        features["thermal_margin_hours"] = (
+            hold - eta
         )
+
+        features["eta_to_planned_ratio"] = (
+            eta / planned.clip(lower=0.5)
+        )
+
+        features["eta_to_deadline_ratio"] = (
+            eta / deadline.clip(lower=0.5)
+        )
+
+        features["buffer_to_eta_ratio"] = (
+            hold / eta.clip(lower=0.5)
+        )
+
         features["multimodal_flag"] = (
-            shipments["Transport_Mode"]
+            df["Transport_Mode"]
             .eq("Multi-Modal Air-to-Land")
             .astype(int)
         )
 
     if not np.isfinite(
-        features[MODEL_NUMERIC_COLUMNS].to_numpy(dtype=float)
+        features[
+            MODEL_NUMERIC_COLUMNS
+        ].to_numpy(dtype=float)
     ).all():
         raise ShipmentValidationError(
-            "Shipment magnitudes exceed finite feature arithmetic. "
-            "Check units and unrealistic numeric values."
+            "Derived features exceed finite arithmetic; "
+            "check units and magnitudes."
         )
 
-    return features.loc[:, MODEL_FEATURE_COLUMNS]
+    return features.loc[
+        :, MODEL_FEATURE_COLUMNS
+    ]

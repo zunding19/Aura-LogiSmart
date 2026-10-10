@@ -1,143 +1,180 @@
-from __future__ import annotations
-
+"""Train using training CV and a separate holdout."""
 import argparse
 import json
 from pathlib import Path
 import sys
 
-sys.path.insert(
-    0, str(Path(__file__).resolve().parents[1])
-)
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from src.data_loader import (
     generate_demo_shipments,
     load_shipments,
     suggest_column_mapping,
 )
-from src.model import save_model, train_model
+from src.model import (
+    save_model,
+    train_model,
+)
 from src.schema import TARGET_COLUMN
 
 
-def _column_mapping(
-    value: str | None,
-) -> dict[str, str] | None:
+def _column_mapping(value):
     if value is None:
         return None
 
     try:
-        if value.lstrip().startswith("{"):
-            mapping = json.loads(value)
-        else:
-            with Path(value).open(
-                encoding="utf-8"
-            ) as handle:
-                mapping = json.load(handle)
-    except (OSError, json.JSONDecodeError) as exc:
+        mapping = (
+            json.loads(value)
+            if value.lstrip().startswith("{")
+            else json.loads(
+                Path(value).read_text(
+                    encoding="utf-8"
+                )
+            )
+        )
+    except (OSError, ValueError) as exc:
         raise ValueError(
             "--column-mapping must be a JSON object "
-            "or a readable JSON file."
+            "or readable JSON file."
         ) from exc
 
     if (
         not isinstance(mapping, dict)
         or not all(
-            isinstance(k, str) and isinstance(v, str)
-            for k, v in mapping.items()
+            isinstance(key, str)
+            and isinstance(target, str)
+            for key, target in mapping.items()
         )
     ):
         raise ValueError(
-            "--column-mapping must map original column names "
+            "--column-mapping must map source column names "
             "to canonical names."
         )
 
     return mapping
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Train an Aura shipment-risk model."
+        description=__doc__
     )
 
     data = parser.add_mutually_exclusive_group(
         required=True
     )
+
     data.add_argument(
         "--data",
         type=Path,
-        help="CSV containing genuinely observed binary outcomes.",
+        help=(
+            "CSV containing binary outcome labels "
+            "and data provenance."
+        ),
     )
+
     data.add_argument(
         "--demo",
         action="store_true",
-        help="Explicitly train on synthetic demonstration data.",
+        help="Use the bundled synthetic shipment dataset.",
     )
 
     parser.add_argument(
         "--target",
         default=TARGET_COLUMN,
-        help="Observed binary target column in your CSV.",
     )
+
     parser.add_argument(
         "--column-mapping",
-        help="JSON old-to-canonical map or JSON file.",
+        help=(
+            "JSON old-to-canonical mapping "
+            "or its file path."
+        ),
     )
+
     parser.add_argument(
         "--output",
         type=Path,
-        help="Trusted local output .pkl or .joblib path.",
+        help="Trusted local .pkl or .joblib output.",
     )
+
     parser.add_argument(
-        "--random-state", type=int, default=42
+        "--random-state",
+        "--seed",
+        type=int,
+        default=42,
     )
+
     parser.add_argument(
         "--rows",
         type=int,
-        default=400,
-        help="Synthetic row count, used only with --demo.",
+        default=5000,
+        help=(
+            "Demo sample size; default is "
+            "all 5,000 bundled shipments."
+        ),
     )
 
     args = parser.parse_args(argv)
 
     try:
-        mapping = _column_mapping(args.column_mapping)
+        mapping = _column_mapping(
+            args.column_mapping
+        )
 
         if args.demo:
-            if mapping or args.target != TARGET_COLUMN:
+            if (
+                mapping is not None
+                or args.target != TARGET_COLUMN
+            ):
                 raise ValueError(
-                    "--column-mapping and custom --target "
-                    "are for --data CSV, not --demo."
+                    "Custom target/mapping require --data."
                 )
 
             frame = generate_demo_shipments(
                 n=args.rows,
                 seed=args.random_state,
             )
-            source = (
-                f"synthetic demo (seed={args.random_state})"
-            )
+
             target = TARGET_COLUMN
-            print(
-                "DEMO: synthetic outcomes demonstrate software "
-                "behavior; metrics are not real-world evidence."
+            source = (
+                "Synthetic bundled shipment simulation"
             )
+
         else:
             frame = load_shipments(
-                args.data, column_mapping=mapping
+                args.data,
+                column_mapping=mapping,
             )
-            source = f"user CSV: {args.data.resolve()}"
+
             target = (mapping or {}).get(
-                args.target, args.target
+                args.target,
+                args.target,
             )
 
-            if target not in frame:
-                target = suggest_column_mapping(
-                    [target]
-                ).get(target, target)
+            target = suggest_column_mapping(
+                [target]
+            ).get(
+                target,
+                target,
+            )
 
-        print(f"Data source: {source}")
-        print(
-            f"Rows: {len(frame)}; observed target: {target}"
-        )
+            source = (
+                "; ".join(
+                    frame["Data_Source"]
+                    .dropna()
+                    .astype(str)
+                    .unique()
+                )
+                if "Data_Source" in frame
+                else ""
+            )
+
+            source = source or (
+                f"User CSV: {args.data}; "
+                "label provenance unverified"
+            )
 
         bundle = train_model(
             frame,
@@ -146,16 +183,20 @@ def main(argv: list[str] | None = None) -> int:
             random_state=args.random_state,
         )
 
-        output = args.output or Path(
-            "models/aura_demo_model.pkl"
-            if bundle.metadata["is_synthetic"]
-            else "models/aura_model.pkl"
+        output = (
+            args.output
+            or ROOT / "models" / (
+                "aura_demo_model.pkl"
+                if bundle.metadata["is_synthetic"]
+                else "aura_model.pkl"
+            )
         )
-        save_model(bundle, output)
 
-    except (
-        ValueError, FileNotFoundError, OSError
-    ) as exc:
+        save_model(
+            bundle, output
+        )
+
+    except (ValueError, OSError) as exc:
         print(
             f"Training stopped: {exc}",
             file=sys.stderr,
@@ -163,29 +204,49 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(
-        "Selected using training CV: "
-        + bundle.metadata["model_name"]
+        f"Source: {bundle.metadata['model_source']}; "
+        f"rows={len(frame)}; target={target}"
     )
     print(
-        "Model provenance: "
-        + bundle.metadata["model_source"]
-    )
-    print(
-        f"Split: {bundle.metadata['split_method']}; "
-        f"training={bundle.metadata['n_train']}, "
-        f"holdout={bundle.metadata['n_test']}"
+        "Selected by training CV: "
+        f"{bundle.metadata['model_name']}; "
+        f"split={bundle.metadata['split_method']}"
     )
 
-    print("Training-CV comparisons:")
-    print(json.dumps(bundle.comparisons, indent=2))
-    print("Untouched holdout metrics:")
-    print(json.dumps(bundle.metrics, indent=2))
+    for row in bundle.comparisons:
+        print(
+            f"CV {row['model']}: "
+            f"ROC AUC={row['cv_roc_auc']:.3f}; "
+            f"F1={row['cv_f1']:.3f}"
+        )
+
     print(
-        "Probability calibration and a real-world "
-        "prediction horizon have not been established."
+        "Holdout:",
+        {
+            key: value
+            for key, value in bundle.metrics.items()
+            if key != "classification_report"
+        },
+    )
+
+    for label, row in bundle.metrics[
+        "classification_report"
+    ].items():
+        if isinstance(row, dict):
+            print(
+                f"  {label}: "
+                f"precision={row['precision']:.3f}; "
+                f"recall={row['recall']:.3f}; "
+                f"F1={row['f1-score']:.3f}; "
+                f"n={row['support']}"
+            )
+
+    print(
+        "Scores are not calibrated; simulated outcomes "
+        "do not establish real-world performance."
     )
     print(
-        f"Saved trusted local artifact: {output.resolve()}"
+        f"Saved: {output.resolve()}"
     )
 
     return 0

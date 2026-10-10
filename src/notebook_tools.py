@@ -1,3 +1,4 @@
+"""Shared notebook loading, training and artifact reuse."""
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -11,67 +12,80 @@ from src.model import (
     save_model,
     train_model,
 )
-from src.schema import TARGET_COLUMN
+from src.schema import (
+    FEATURE_SCHEMA_VERSION,
+    TARGET_COLUMN,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
 
+PROCESSED_PATH = (
+    ROOT / "data/processed/aura_shipments.csv"
+)
 
-def notebook_data(data_path="", mapping_path=""):
-    if not data_path:
-        return (
-            generate_demo_shipments(n=400, seed=42),
-            "synthetic demo (seed=42)",
+
+def _project_path(value):
+    path = Path(value).expanduser()
+
+    return (
+        path
+        if path.is_absolute()
+        else ROOT / path
+    )
+
+
+def notebook_data(
+    data_path="",
+    mapping_path="",
+):
+    path = (
+        _project_path(data_path)
+        if data_path
+        else PROCESSED_PATH
+    )
+
+    mapping = (
+        json.loads(
+            _project_path(mapping_path).read_text(
+                encoding="utf-8"
+            )
         )
-
-    path = Path(data_path).expanduser()
-    path = path if path.is_absolute() else ROOT / path
-    mapping = None
-
-    if mapping_path:
-        mapping_file = Path(mapping_path).expanduser()
-        mapping_file = (
-            mapping_file
-            if mapping_file.is_absolute()
-            else ROOT / mapping_file
-        )
-        mapping = json.loads(mapping_file.read_text())
+        if mapping_path
+        else None
+    )
 
     raw = read_raw_shipments(
-        path, column_mapping=mapping
+        path,
+        column_mapping=mapping,
     )
-
-    marked = (
-        raw["Shipment_ID"]
-        .astype(str)
-        .str.upper()
-        .str.startswith("SYNTHETIC-")
-        .any()
-        if "Shipment_ID" in raw
-        else False
-    )
-
-    if "Data_Source" in raw:
-        marked = marked or (
-            raw["Data_Source"]
-            .astype(str)
-            .str.contains(
-                "synthetic", case=False, na=False
-            )
-            .any()
-        )
 
     source = (
-        f"synthetic-marked CSV: {path.name}"
-        if marked
-        else f"user CSV: {path.name}"
+        "; ".join(
+            raw["Data_Source"]
+            .dropna()
+            .astype(str)
+            .unique()
+        )
+        if "Data_Source" in raw
+        else ""
     )
-    return raw, source
+
+    return (
+        raw,
+        source
+        or (
+            f"User CSV: {path.name}; "
+            "label provenance unverified"
+        ),
+    )
 
 
 def data_fingerprint(clean):
     return sha256(
-        clean.to_csv(index=True).encode()
+        clean.to_csv(
+            index=True
+        ).encode("utf-8")
     ).hexdigest()
 
 
@@ -81,8 +95,14 @@ def notebook_train(clean, source):
         target=TARGET_COLUMN,
         data_source=source,
     )
-    bundle.metadata["notebook_data_sha256"] = (
-        data_fingerprint(clean)
+
+    bundle.metadata.update(
+        notebook_data_sha256=data_fingerprint(
+            clean
+        ),
+        feature_schema_version=(
+            FEATURE_SCHEMA_VERSION
+        ),
     )
 
     filename = (
@@ -90,6 +110,7 @@ def notebook_train(clean, source):
         if bundle.metadata["is_synthetic"]
         else "aura_model.pkl"
     )
+
     path = ROOT / "models" / filename
     save_model(bundle, path)
 
@@ -97,23 +118,42 @@ def notebook_train(clean, source):
 
 
 def notebook_evaluate(clean, source):
-    fingerprint = data_fingerprint(clean)
+    fingerprint = data_fingerprint(
+        clean
+    )
 
     for filename in (
-        "aura_demo_model.pkl", "aura_model.pkl"
+        "aura_demo_model.pkl",
+        "aura_model.pkl",
     ):
         path = ROOT / "models" / filename
 
-        if path.exists():
-            bundle = load_model(path)
-            if (
-                bundle.metadata.get("notebook_data_sha256")
-                == fingerprint
-            ):
-                return bundle
+        if not path.is_file():
+            continue
 
-    return train_model(
+        try:
+            bundle = load_model(path)
+        except ValueError:
+            continue
+
+        if (
+            bundle.metadata.get(
+                "feature_schema_version"
+            ) == FEATURE_SCHEMA_VERSION
+            and bundle.metadata.get(
+                "notebook_data_sha256"
+            ) == fingerprint
+        ):
+            return bundle
+
+    bundle = train_model(
         clean,
         target=TARGET_COLUMN,
         data_source=source,
     )
+
+    bundle.metadata[
+        "notebook_data_sha256"
+    ] = fingerprint
+
+    return bundle
