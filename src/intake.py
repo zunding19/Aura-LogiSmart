@@ -22,7 +22,8 @@ from src.recommendations import (
     get_recommended_action,
     simulate_intervention,
 )
-from src.schema import TYPICAL_PACE, WEATHER_SEVERITY
+from src.schema import TARGET_COLUMN, TYPICAL_PACE, WEATHER_SEVERITY
+from src.weather import current_weather
 
 INSUFFICIENT = "Insufficient data for reliable prediction"
 OUT_OF_SCOPE = "Outside Aura's scope"
@@ -226,7 +227,19 @@ def estimate_route_risk(origin, destination, risk_provider=None):
     )
 
 
-def prepare_order(order, risk_provider=None):
+def lookup_weather(origin, destination, fetch=None):
+    """Current weather for a route, for filling in the form. (None, None) if unknown."""
+    points = [
+        PLACES[name]
+        for name in (_place(origin), _place(destination))
+        if name is not None
+    ]
+    if len(points) < 2:
+        return None, None
+    return current_weather(points, fetch=fetch)
+
+
+def prepare_order(order, risk_provider=None, weather_provider=None):
     """Rename the form fields and fill in what can be inferred. Says what it inferred."""
     if not isinstance(order, Mapping):
         raise ShipmentValidationError("Supply one order as a dictionary.")
@@ -284,6 +297,15 @@ def prepare_order(order, risk_provider=None):
         inferred["Carrier_Reliability_Score"] = (
             "Not entered. A typical carrier is assumed."
         )
+
+    if "Weather_Condition" not in shipment and weather_provider is not None:
+        try:
+            condition, source = weather_provider(origin, destination)
+        except Exception:
+            condition, source = None, None
+        if condition in WEATHER_SEVERITY:
+            shipment["Weather_Condition"] = condition
+            inferred["Weather_Condition"] = source
 
     if "Weather_Condition" not in shipment:
         inferred["Weather_Condition"] = (
@@ -550,15 +572,29 @@ def _actions(clean, model, category, probability, cargo, countdown, alert):
     )
 
 
-def assess_order(order, model=None, risk_provider=None, custody_records=None):
-    """Stages 1 to 5 for one entered order. Bad input returns a status, never a crash."""
+def assess_order(
+    order,
+    model=None,
+    risk_provider=None,
+    custody_records=None,
+    live_weather=False,
+    weather_provider=None,
+):
+    """Stages 1 to 5 for one entered order. Bad input returns a status, never a crash.
+
+    live_weather=True fills in a missing weather field from Open-Meteo.
+    """
     model = _default_model() if model is None else model
+    if weather_provider is None and live_weather:
+        weather_provider = lookup_weather
     inferred, ignored = {}, []
     if isinstance(order, pd.Series):
         order = order.to_dict()
 
     try:
-        shipment, inferred, ignored = prepare_order(order, risk_provider)
+        shipment, inferred, ignored = prepare_order(
+            order, risk_provider, weather_provider
+        )
         clean = _clean_shipment(shipment, model)
 
         if clean.get("Transport_Mode") in {"Sea", "Rail"}:
@@ -692,7 +728,48 @@ def assess_order(order, model=None, risk_provider=None, custody_records=None):
     ))
 
 
-def triage_queue(shipments=None, model=None, top=None):
+_ALERT_LINE_OPTIONS = None
+
+
+def alert_line_options(model=None):
+    """What each alert line gives on the held-out test shipments, for a slider.
+
+    A lower line catches more disruptions and raises more false alarms.
+    """
+    global _ALERT_LINE_OPTIONS
+    if model is None and _ALERT_LINE_OPTIONS is not None:
+        return [dict(row) for row in _ALERT_LINE_OPTIONS]
+
+    from sklearn.model_selection import train_test_split
+
+    scorer = _default_model() if model is None else model
+    data = pd.read_csv(DEMO_PATH)
+    # The same split notebook 05 used, so these are shipments the model never saw.
+    _, test = train_test_split(
+        data, test_size=.20, stratify=data[TARGET_COLUMN], random_state=42
+    )
+    risk = predict_failure_risk(test, scorer)["p_failure"].to_numpy()
+    disrupted = test[TARGET_COLUMN].to_numpy() == 1
+
+    rows = []
+    for line in [.30, .40, .50, .60, .70, .80]:
+        alert = risk >= line
+        caught = alert & disrupted
+        rows.append(dict(
+            alert_line=line,
+            precision=float(caught.sum() / max(alert.sum(), 1)),
+            recall=float(caught.sum() / disrupted.sum()),
+            alerts_per_1000=float(1000 * alert.mean()),
+            false_alarms_per_1000=float(1000 * (alert & ~disrupted).mean()),
+            missed_per_1000=float(1000 * (~alert & disrupted).mean()),
+        ))
+
+    if model is None:
+        _ALERT_LINE_OPTIONS = rows
+    return [dict(row) for row in rows]
+
+
+def triage_queue(shipments=None, model=None, top=None, alert_line=ALERT_LINE):
     """Score shipments and return the in-scope pharmaceutical alerts, most urgent first."""
     model = _default_model() if model is None else model
     if shipments is None:
@@ -702,7 +779,7 @@ def triage_queue(shipments=None, model=None, top=None):
         shipments["Transport_Mode"].isin(IN_SCOPE_MODES)
     ]
     scored = in_scope.join(predict_failure_risk(in_scope, model))
-    queue = calculate_triage_queue(scored)
+    queue = calculate_triage_queue(scored, alert_line=alert_line)
     return queue if top is None else queue.head(top)
 
 
@@ -726,6 +803,8 @@ __all__ = [
     "IN_SCOPE_MODES",
     "ORDER_ALIASES",
     "assess_order",
+    "lookup_weather",
+    "alert_line_options",
     "triage_queue",
     "rank_orders",
     "prepare_order",

@@ -43,8 +43,13 @@ def _probabilities(values):
     return result.astype(float)
 
 
-def calculate_triage_queue(shipments_df):
-    """Retain alerted pharmaceuticals and apply the exact notebook priority formula."""
+def calculate_triage_queue(shipments_df, alert_line=ALERT_LINE):
+    """Retain alerted pharmaceuticals and apply the exact notebook priority formula.
+
+    alert_line can be lowered to catch more disruptions at the cost of more false alarms.
+    """
+    alert_line = _finite_number(alert_line, "alert_line", maximum=1)
+
     if not isinstance(shipments_df, pd.DataFrame):
         raise ShipmentValidationError(
             "Triage requires a DataFrame."
@@ -91,7 +96,7 @@ def calculate_triage_queue(shipments_df):
         )
 
     queue["p_disruption"], queue["p_failure"] = probability, probability
-    queue["risk"], queue["alert"] = probability, probability >= ALERT_LINE
+    queue["risk"], queue["alert"] = probability, probability >= alert_line
 
     queue = queue[
         queue["alert"]

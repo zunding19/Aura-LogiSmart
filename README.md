@@ -49,6 +49,7 @@ The model also holds up when its inputs are imperfect: scores barely move with 3
 - **The model predicts disruption, not spoilage.** The data records only whether a shipment was disrupted. Thermal runway (buffer hours left against hours still to go) shows whether the cargo would survive that disruption.
 - **Cargo value, storage standard, thermal buffer and hospital urgency are simulated** by `src/build_dataset.py`. They are used for ranking and money, never as model inputs.
 - **Action fees, action effects and the cost of a disruption (10% of cargo value) are assumptions.** A real team would replace them with its own figures.
+- **Weather** for a newly entered order can be filled in live from Open-Meteo (the worse of the current weather at the two ends of the route). If the service cannot be reached, a backup model scores the order without weather.
 - **Route risk** for a newly entered order comes from the World Bank political stability index (2025), converted to a 0 to 10 score. It is a yearly figure. A live source such as ACLED can be plugged in later.
 
 ## Run it
@@ -80,7 +81,7 @@ result = assess_order({
 })
 ```
 
-`result` holds `risk`, `failure_mode`, `priority`, `explanation`, `thermal`, `actions`, `sla` and `scorecard`.
+`result` holds `risk`, `failure_mode`, `priority`, `explanation`, `thermal`, `actions`, `sla` and `scorecard`. Pass `live_weather=True` to fill in a missing weather field from Open-Meteo.
 
 ## Repository
 
@@ -94,11 +95,12 @@ src/
   prioritize.py        Triage queue
   recommendations.py   Actions, fees, net savings and the Smart SLA
   protocols.py         Custody handshake and audit trail
+  weather.py           Live weather from Open-Meteo
   build_dataset.py     Rebuilds the training file from the raw file
 notebooks/             01 to 05: data checks, features, model choice, final evaluation
 models/                aura_final_model.pkl, written by notebook 05
 data/                  Raw file and the rebuilt training file
-tests/                 63 tests covering the model, the order flow and the SLA
+tests/                 77 tests covering the model, the order flow, the SLA and the weather lookup
 ```
 
 ## Technology
