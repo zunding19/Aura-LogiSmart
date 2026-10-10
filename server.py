@@ -62,6 +62,8 @@ def alert_line(request):
         line = float(request.query_params.get("line", .6))
     except ValueError:
         line = .6
+    if not math.isfinite(line):
+        line = .6
     return min(ALERT_LINES, key=lambda option: abs(option - line))
 
 
@@ -113,19 +115,18 @@ def build_alerts(top):
     for row in top.to_dict("records"):
         sid, p = row["Shipment_ID"], row["p_failure"]
         runway = None if pd.isna(row["runway"]) else row["runway"]
-        buffer = row["Remaining_Buffer_Hours_Simulated"] if row["Transport_Mode"] == "Air" else None
-        sla = sla_for(sid, p, buffer)
+        sla = sla_for(sid, p, countdown_buffer(row))
         tier = row["Hospital_Urgency_Tier_Simulated"]
         body = (
             f"{p:.0%} disruption risk on {money(row['Cargo_Value_USD_Simulated'])} of "
             f"pharmaceuticals for {'an' if tier[:1] in 'AEIOU' else 'a'} {tier} order."
         )
         if sla and sla["breach_warning"]:
-            kind, tone, head = "SLA breach", "red", "SLA breach notice issued"
+            kind, tone, head = "SLA breach", "red", "Carrier payment on hold"
             body = sla["breach_notice"]["text"]
         elif sla and sla["trigger_condition"]:
-            kind, tone, head = "Resolved", "teal", "Corrective proof verified. Escrow released."
-            body = "A corrective handshake with at least 3 hours of buffer is on record."
+            kind, tone, head = "Resolved", "teal", "Fix logged. Carrier payment released."
+            body = "A cooling fix that restores at least 3 hours of buffer has been logged."
         elif runway is not None and runway < 0:
             kind, tone = "Buffer short", "red"
             head = f"Thermal buffer ends {-runway:.1f} h before arrival"
@@ -175,6 +176,110 @@ def with_after(result):
     return result
 
 
+def decide(result, line):
+    """Rank the actions for the screen: what pays first, then what protects the batch.
+
+    The alert line comes from the slider, so the advice follows it.
+    """
+    actions, p = result["actions"], result["risk"]["p_failure"]
+    options = actions["options"]
+    by_id = {o["action_id"]: o for o in options}
+    monitor = by_id.get("monitor")
+    usable = [
+        o for o in options
+        if o["available"] and o["action_id"] not in ("monitor", "stock_diversion")
+    ]
+    flagged = p >= line
+    paying = sorted(
+        (o for o in usable if (o["net_saving_usd"] or 0) > 0),
+        key=lambda o: -o["net_saving_usd"],
+    )
+    covering = sorted(
+        (o for o in usable if o["covers_thermal_gap"]),
+        key=lambda o: o["action_cost_usd"],
+    )
+    best = paying[0] if flagged and paying else None
+    # The best action may already make the buffer cover the trip.
+    cover = None if (best and best["covers_thermal_gap"]) or not covering else covering[0]
+
+    ranked = []
+
+    def add(option):
+        if option is not None and option not in ranked:
+            ranked.append(option)
+
+    add(best)
+    add(cover)
+    if not ranked:
+        add(monitor)
+    for option in (paying if flagged else []):
+        add(option)
+    for option in covering:
+        add(option)
+    add(monitor)
+    # Whatever is left costs money and wins nothing, so it sits below doing nothing.
+    for option in sorted(usable, key=lambda o: -(o["net_saving_usd"] or 0)):
+        add(option)
+
+    for option in options:
+        if not option["available"]:
+            payoff = "unavailable"
+        elif option["action_id"] == "stock_diversion":
+            payoff = "backup"
+        elif option["action_id"] == "monitor":
+            payoff = "none"
+        elif (option["net_saving_usd"] or 0) > 0:
+            payoff = "saves"
+        elif option["covers_thermal_gap"]:
+            payoff = "protects"
+        else:
+            payoff = "costs"
+        option["payoff"] = payoff
+        option["rank"] = ranked.index(option) + 1 if option in ranked else None
+
+    lowest = min((o["risk_after"] for o in options if o["available"]), default=p)
+    # With nothing to save on risk, protecting the batch is still the thing to do.
+    chosen = best or cover or monitor
+    actions.update(
+        options=ranked + [o for o in options if o not in ranked],
+        flagged=flagged,
+        recommended_action_id=chosen["action_id"] if chosen else None,
+        recommended_title=chosen["title"] if chosen else None,
+        thermal_action_id=cover["action_id"] if cover else None,
+        # When no action brings an alert under the line, cover the hospital instead.
+        backup_action_id=(
+            "stock_diversion" if flagged and lowest >= line and "stock_diversion" in by_id else None
+        ),
+    )
+    return result
+
+
+def countdown_buffer(row):
+    """Buffer hours for a queue row, or None in a powered container (no countdown)."""
+    return row["Remaining_Buffer_Hours_Simulated"] if row["Transport_Mode"] == "Air" else None
+
+
+def neighbours(q, position, span=2):
+    """The shipments ranked just above and below, with the four things urgency weighs."""
+    start = max(min(position - span, len(q) - (2 * span + 1)), 0)
+    rows = q.iloc[start:start + 2 * span + 1].to_dict("records")
+    return [dict(
+        rank=start + i + 1, id=r["Shipment_ID"], p_failure=r["p_failure"],
+        cargo=r["Cargo_Value_USD_Simulated"], tier=r["Hospital_Urgency_Tier_Simulated"],
+        buffer_hours=r["Remaining_Buffer_Hours_Simulated"], counts_down=r["Transport_Mode"] == "Air",
+    ) for i, r in enumerate(rows)]
+
+
+def safe(handler):
+    """A backend error becomes the standard 'insufficient data' answer, never a crash page."""
+    def wrapped(request):
+        try:
+            return handler(request)
+        except (ValueError, TypeError, KeyError, IndexError) as exc:
+            return reply(dict(status=intake.INSUFFICIENT, reason=str(exc)))
+    return wrapped
+
+
 # ---------------------------------------------------------------- endpoints
 
 def get_meta(request):
@@ -195,10 +300,10 @@ def get_queue(request):
         "Hospital_Urgency_Tier_Simulated", "Remaining_Buffer_Hours_Simulated",
         "hours_to_go", "runway", "urgency_score", "expected_loss_usd",
     ]
-    alerts = build_alerts(q.head(12))
+    alerts = build_alerts(top)
     return reply(dict(
         alert_line=line, count=len(q), top=top[columns].to_dict("records"),
-        alerts=alerts, line=line_row(line),
+        alerts=alerts, line=line_row(line), loss_share=LOSS_SHARE,
         stats=dict(
             expected_loss_top=float(top["expected_loss_usd"].sum()) if len(top) else 0,
             buffer_short=int((top["runway"] < 0).sum()), shown=len(top),
@@ -211,24 +316,37 @@ def shipment_payload(shipment_id, line):
     result = assess_shipment(shipment_id)
     if result.get("status") != "ok":
         return dict(result)
-    result = with_after(clean(result))  # clean() copies, so the cache stays untouched
+    result = decide(with_after(clean(result)), line)  # clean() copies, so the cache stays untouched
     q = queue(line)
     ids = list(q["Shipment_ID"])
     thermal, risk = result["thermal"], result["risk"]
-    raw = SHIPMENTS.loc[SHIPMENTS["Shipment_ID"] == shipment_id, "Flag_Land_Route_Across_Ocean"]
-    top = q.head(5)
-    peak = float(top["urgency_score"].max() or 1) if len(top) else 1
+    row = SHIPMENTS.loc[SHIPMENTS["Shipment_ID"] == shipment_id]
+    crosses_ocean = (
+        "Flag_Land_Route_Across_Ocean" in row
+        and bool(row["Flag_Land_Route_Across_Ocean"].fillna(0).astype(bool).any())
+    )
+    rank = ids.index(shipment_id) + 1 if shipment_id in ids else None
+    if rank:
+        rank_note = None
+    elif risk["p_failure"] < line:
+        rank_note = "Below the alert line, so it is not in the queue."
+    elif crosses_ocean:
+        rank_note = "Left out of the queue: the data check found a land route that crosses an ocean."
+    elif not (row["Product_Category"] == "Pharmaceuticals").any():
+        rank_note = "Not a pharmaceutical shipment, so it is not in the queue."
+    else:
+        rank_note = "Not in the queue."
     result.update(
         sla=sla_for(
             shipment_id, risk["p_failure"],
             thermal["buffer_hours"] if thermal["buffer_counts_down"] else None,
         ),
-        rank=ids.index(shipment_id) + 1 if shipment_id in ids else None,
+        rank=rank, rank_note=rank_note,
         queue_size=len(q),
-        flag_land_route=bool(raw.fillna(False).any()),
+        flag_land_route=crosses_ocean,
         committed=COMMITTED.get(shipment_id, []),
-        top5=[dict(id=r["Shipment_ID"], share=r["urgency_score"] / peak)
-              for r in top.to_dict("records")],
+        neighbours=neighbours(q, rank - 1) if rank else [],
+        line=line_row(line), loss_share=LOSS_SHARE,
         sweep=weather_sweep(result["shipment"]),
     )
     return result
@@ -253,7 +371,7 @@ async def post_assess(request):
     result = assess_scenario(scenario_order(body))
     if result.get("status") != "ok":
         return reply(result)
-    result = with_after(clean(result))
+    result = decide(with_after(clean(result)), alert_line(request))
     result["sweep"] = weather_sweep(result["shipment"])
     return reply(result)
 
@@ -263,6 +381,8 @@ async def post_quick(request):
     try:
         body = await request.json()
         shipment, _, _ = intake.prepare_order(dict(scenario_order(body)))
+        if shipment.get("Transport_Mode") in ("Sea", "Rail"):
+            return reply(dict(status=intake.OUT_OF_SCOPE, reason="LogiSmart covers air and road shipments."))
         frame = pd.DataFrame([_clean_shipment(shipment, MODEL)])
         risk = predict_failure_risk(frame, MODEL).iloc[0]
         return reply(dict(status="ok", p_failure=float(risk["p_failure"]),
@@ -301,6 +421,8 @@ async def post_commit(request):
         body = await request.json()
         shipment_id, action_id = str(body["shipment_id"]), str(body["action_id"])
         title = ACTION_CATALOG[action_id]["title"]
+        if not (SHIPMENTS["Shipment_ID"] == shipment_id).any():
+            raise KeyError(shipment_id)
     except (ValueError, KeyError, TypeError):
         return reply(dict(ok=False, message="Unknown shipment or action."), 400)
 
@@ -332,12 +454,12 @@ def spa(request):
 
 routes = [
     Route("/api/meta", get_meta),
-    Route("/api/queue", get_queue),
-    Route("/api/shipment/{shipment_id}", get_shipment),
+    Route("/api/queue", safe(get_queue)),
+    Route("/api/shipment/{shipment_id}", safe(get_shipment)),
     Route("/api/assess", post_assess, methods=["POST"]),
     Route("/api/quick", post_quick, methods=["POST"]),
     Route("/api/weather", get_weather),
-    Route("/api/evidence", get_evidence),
+    Route("/api/evidence", safe(get_evidence)),
     Route("/api/commit", post_commit, methods=["POST"]),
 ]
 if (WEB / "assets").exists():

@@ -1,7 +1,6 @@
 import clsx from "clsx";
-import type { CSSProperties } from "react";
 import RouteMap from "../RouteMap";
-import { hours, pct, riskColor, riskFill, riskLevel, useApi, usd, type Data } from "../lib";
+import { hours, pct, riskColor, riskFill, riskLevel, useApi, usd, verdict, type Data } from "../lib";
 import { useStore } from "../store";
 import { Banner, Blocks, Chip, KV, Meter } from "../ui";
 
@@ -9,7 +8,7 @@ function QueueRow({ row, rank, on, logged }: { row: Data; rank: number; on: bool
   const go = useStore((s) => s.go);
   const color = riskColor(row.p_failure);
   return (
-    <div className={clsx("qrow", on && "on")} style={{ "--i": Math.min(rank, 6) } as CSSProperties}>
+    <div className={clsx("qrow", on && "on")}>
       <div className="rank">{String(rank).padStart(2, "0")}</div>
       <div>
         <div className="id">{row.Shipment_ID}</div>
@@ -18,7 +17,7 @@ function QueueRow({ row, rank, on, logged }: { row: Data; rank: number; on: bool
         </div>
         <div className="meta">
           {usd(row.Cargo_Value_USD_Simulated)} · {row.Hospital_Urgency_Tier_Simulated} ·{" "}
-          {row.runway == null ? "powered reefer" : <span className={row.runway < 0 ? "red" : undefined}>runway {hours(row.runway)}</span>}
+          {row.runway == null ? "powered container" : <span className={row.runway < 0 ? "red" : undefined}>runway {hours(row.runway)}</span>}
         </div>
         {logged && <div className="chips"><Chip tone="teal">Action logged</Chip></div>}
       </div>
@@ -43,6 +42,7 @@ function Brief({ id }: { id: string }) {
   if (data.status !== "ok") return null;
   const p = data.risk.p_failure;
   const runway = data.thermal.runway_hours;
+  const advice = verdict(data.actions, data.thermal);
   return (
     <section className={clsx("panel", loading && "pending")} aria-label="Selected shipment">
       <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "start" }}>
@@ -61,9 +61,9 @@ function Brief({ id }: { id: string }) {
       <Meter value={p} />
       <p className="note" style={{ marginTop: 12 }}>{data.explanation.summary}</p>
       <KV style={{ marginTop: 16 }} items={[
-        { label: "Failure mode", value: data.failure_mode.mode, small: true },
+        { label: "Kind of trouble", value: data.failure_mode.mode, small: true },
         { label: "Thermal runway", value: hours(runway), small: true, color: (runway ?? 0) < 0 ? "var(--red)" : undefined },
-        { label: "Best action", value: data.actions.recommended_title, small: true },
+        { label: "Recommended", value: advice.head, small: true },
       ]} />
     </section>
   );
@@ -80,7 +80,7 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
       <h1 className="title">Which shipment needs you first</h1>
       <p className="subtitle">
         The ten most urgent pharmaceutical shipments, ranked by risk, cargo value, hospital urgency and hours of thermal
-        buffer left. Pick one on the map or in the queue.
+        buffer left. Pick one on the map or in the queue. Shipments are simulated.
       </p>
       {top.length === 0 ? (
         <Banner title="No alerts at this line">Lower the alert line in the sidebar to see more shipments.</Banner>
@@ -88,15 +88,15 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
         <div className="cols" style={{ gridTemplateColumns: "minmax(0, 1.3fr) minmax(0, 1fr)" }}>
           <div>
             <section className="panel">
-              <h2 className="h2">Live routes</h2>
+              <h2 className="h2">Routes at risk</h2>
               <p className="note">Squares mark shipments. Red is critical (80% and above), amber is high. Click a square to select it.</p>
               <RouteMap rows={top} coordinates={coordinates} selected={selected} onSelect={select} />
               <KV style={{ marginTop: 8 }} items={[
-                { label: "In the queue", value: queue.count, sub: "pharma alerts, air and road" },
-                { label: "Expected loss, top 10", value: usd(stats.expected_loss_top), sub: "risk x 10% of cargo value" },
-                { label: "Buffer ends early", value: `${stats.buffer_short} of ${stats.shown}`, sub: "before the shipment arrives", color: stats.buffer_short ? "var(--red)" : undefined },
-                { label: "SLA notices", value: stats.sla_breaches, sub: "carrier payout held", color: stats.sla_breaches ? "var(--red)" : undefined },
+                { label: `Expected loss, top ${stats.shown}`, value: usd(stats.expected_loss_top), sub: "if nothing is done" },
+                { label: "Buffer short", value: `${stats.buffer_short} of ${stats.shown}`, sub: "ends before arrival", color: stats.buffer_short ? "var(--red)" : undefined },
+                { label: "SLA breaches", value: `${stats.sla_breaches} of ${stats.shown}`, sub: "carrier payment on hold", color: stats.sla_breaches ? "var(--red)" : undefined },
               ]} />
+              <p className="fine">A disruption is assumed to cost {pct(queue.loss_share)} of cargo value.</p>
             </section>
             {selected && <div style={{ marginTop: 16 }}><Brief id={selected} /></div>}
           </div>

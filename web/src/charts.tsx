@@ -66,15 +66,14 @@ export function ThermalChart({ buffer, toGo, after }: {
 }
 
 /** Side by side: what each action leaves at stake (expected loss) plus its fee. */
-export function CostChart({ options, cargo, lossShare }: { options: Data[]; cargo: number; lossShare: number }) {
+export function CostChart({ options, cargo, lossShare, best }: { options: Data[]; cargo: number; lossShare: number; best: string }) {
   const rows = options
     .filter((o) => o.available && o.action_id !== "stock_diversion")
     .map((o) => {
       const loss = o.risk_after * lossShare * cargo;
-      return { name: o.title, loss, fee: o.action_cost_usd, total: loss + o.action_cost_usd };
+      return { id: o.action_id, name: o.title, loss, fee: o.action_cost_usd, total: loss + o.action_cost_usd };
     })
     .sort((a, b) => a.total - b.total);
-  const best = rows[0]?.name;
 
   return (
     <ResponsiveContainer width="100%" height={Math.max(rows.length * 48 + 48, 160)}>
@@ -86,7 +85,7 @@ export function CostChart({ options, cargo, lossShare }: { options: Data[]; carg
         <Tooltip cursor={{ fill: "#eaf3f2" }} formatter={(value) => usd(Number(value))}
           contentStyle={{ borderRadius: 8, border: `1px solid ${GRID}`, fontSize: 13 }} />
         <Bar dataKey="loss" name="Expected loss" stackId="cost" isAnimationActive={false}>
-          {rows.map((row) => <Cell key={row.name} fill={row.name === best ? TEAL : QUIET} />)}
+          {rows.map((row) => <Cell key={row.name} fill={row.id === best ? TEAL : QUIET} />)}
         </Bar>
         <Bar dataKey="fee" name="Fee" stackId="cost" fill={INK} isAnimationActive={false} minPointSize={1}>
           <LabelList dataKey="total" position="right" formatter={(value) => usd(Number(value))} style={{ ...LABEL, fill: SOFT }} />

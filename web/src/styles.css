@@ -171,9 +171,7 @@ input[type="range"] { width: 100%; accent-color: var(--teal); height: 24px; marg
 .kv .s { font-size: 13px; color: var(--muted); margin-top: 2px; }
 
 /* ---------- queue */
-.qrow { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; border-top: 1px solid var(--line); padding: 12px 0;
-  animation: rise 220ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * 30ms); }
-@keyframes rise { from { opacity: 0; transform: translateY(4px); } }
+.qrow { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; border-top: 1px solid var(--line); padding: 12px 0; }
 .qrow .rank { font-family: var(--mono); font-size: 13px; color: var(--muted); align-self: start; padding-top: 2px; }
 .qrow .id { font-family: var(--mono); font-size: 15px; font-weight: 500; }
 .qrow .route { font-size: 14px; color: var(--text-2); margin-top: 2px; overflow-wrap: anywhere; }
@@ -209,8 +207,6 @@ input[type="range"] { width: 100%; accent-color: var(--teal); height: 24px; marg
 .driver:first-child { border-top: 0; padding-top: 0; }
 .driver .top { display: flex; justify-content: space-between; gap: 12px; font-size: 15px; font-weight: 500; align-items: center; }
 .driver p { font-size: 14px; color: var(--text-2); margin-top: 4px; }
-.formula { font-family: var(--mono); font-size: 14px; color: var(--text-2); line-height: 1.8; overflow-wrap: anywhere; }
-.formula b { color: var(--text); font-weight: 500; }
 .matrix { width: 100%; border-collapse: collapse; }
 .matrix th { text-align: left; font-weight: 400; padding: 0 12px 8px 0; vertical-align: bottom; }
 .matrix td { border-top: 1px solid var(--line); padding: 8px 12px 8px 0; vertical-align: middle; }
@@ -260,11 +256,9 @@ details.banner summary:focus-visible { outline: 2px solid var(--teal); outline-o
   .rail { position: static; max-height: none; }
   .stage { grid-template-columns: 1fr; }
   .stage > div { border-left: 0; border-top: 1px solid var(--line); }
-  .matrix th:nth-child(2), .matrix td:nth-child(2) { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .qrow { animation: none; }
   .meter .fill, .map .mark .dot { transition: none; }
   .btn, .nav, .btn:active, .nav:active { transition: background-color 150ms ease; transform: none; }
 }

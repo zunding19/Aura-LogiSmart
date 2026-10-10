@@ -1,0 +1,172 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e3]:
+    - complementary [ref=f2e4]:
+      - generic [ref=f2e5]: LogiSmart
+      - navigation "Screens" [ref=f2e8]:
+        - generic [ref=f2e9]: Operations
+        - button "Command map" [ref=f2e10] [cursor=pointer]
+        - button "Alerts inbox 10" [ref=f2e11] [cursor=pointer]:
+          - text: Alerts inbox
+          - generic [ref=f2e12]: "10"
+        - button "Guided response" [ref=f2e13] [cursor=pointer]
+        - button "What-if simulator" [ref=f2e14] [cursor=pointer]
+        - generic [ref=f2e15]: Proof
+        - button "Evidence" [ref=f2e16] [cursor=pointer]
+      - generic [ref=f2e17]:
+        - generic [ref=f2e18]:
+          - generic [ref=f2e19]:
+            - generic [ref=f2e20]: Alert line
+            - status [ref=f2e21]: 60%
+          - slider "Alert line" [ref=f2e22]: "3"
+        - paragraph [ref=f2e23]: 85% of alerts are real, 70% of disruptions caught on 1,000 test shipments.
+        - paragraph [ref=f2e24]: "Lower line: more caught, more false alarms."
+      - paragraph [ref=f2e25]: Demo on simulated shipments.
+    - main [ref=f2e26]:
+      - generic [ref=f2e27]:
+        - generic [ref=f2e28]: LogiSmart
+        - generic [ref=f2e29]: /
+        - generic [ref=f2e30]: Guided response
+        - generic [ref=f2e31]: 218 pharma alerts at the 60% line
+        - generic [ref=f2e32]: /
+        - generic [ref=f2e33]: 77 false alarms per 1,000 tested
+      - generic [ref=f2e34]:
+        - heading "SC-12132" [level=1] [ref=f2e35]
+        - generic [ref=f2e36]:
+          - generic [ref=f2e37]: Hurricane
+          - generic [ref=f2e39]: Critical Emergency
+          - generic [ref=f2e41]: Storage 2°C to 8°C
+      - paragraph [ref=f2e43]: Dubai to Shanghai by air, 7.4 hours still to go.
+      - group [ref=f2e44]:
+        - 'generic "SLA breach: carrier payment on hold." [ref=f2e45] [cursor=pointer]'
+      - group "Response steps" [ref=f2e46]:
+        - button "1Detect" [ref=f2e47] [cursor=pointer]
+        - button "2Categorize" [ref=f2e48] [cursor=pointer]
+        - button "3Prioritize" [ref=f2e49] [cursor=pointer]
+        - button "4Explain" [ref=f2e50] [cursor=pointer]
+        - button "5Decide" [pressed] [ref=f2e51] [cursor=pointer]
+      - generic [ref=f2e52]:
+        - generic [ref=f2e53]:
+          - generic [ref=f2e54]:
+            - heading "What to do?" [level=2] [ref=f2e55]
+            - generic [ref=f2e56]:
+              - text: "Recommended: Move to next available direct flight, then Hub refrigerant refresh (re-icing)"
+              - paragraph [ref=f2e57]: Move to next available direct flight cuts the risk from 99% to 31% and saves about $203,000 after its $450 fee. The buffer would still be 1.1 h short, so add Hub refrigerant refresh (re-icing) ($120) to protect the $3.0M batch.
+            - paragraph [ref=f2e58]: "Actions are ranked: what pays most first, then what protects the batch. Try one to see its result on the right. Nothing is sent to anyone until you commit."
+            - table [ref=f2e59]:
+              - rowgroup [ref=f2e60]:
+                - row [ref=f2e61]:
+                  - columnheader "Rank" [ref=f2e62]
+                  - columnheader "Action" [ref=f2e63]
+                  - columnheader "Fee" [ref=f2e64]
+                  - columnheader "Risk after" [ref=f2e65]
+                  - columnheader "Runway after" [ref=f2e66]
+                  - columnheader "What it wins" [ref=f2e67]
+                  - columnheader [ref=f2e68]
+              - rowgroup [ref=f2e69]:
+                - row [ref=f2e70]:
+                  - cell "1" [ref=f2e71]
+                  - cell "Move to next available direct flight Best net saving" [ref=f2e72]:
+                    - generic [ref=f2e73]: Move to next available direct flight
+                    - generic [ref=f2e74]: Best net saving
+                  - cell "$450" [ref=f2e77]
+                  - cell "31%" [ref=f2e78]
+                  - cell "1.1 h short" [ref=f2e79]
+                  - cell "Saves $203,357" [ref=f2e80]
+                  - cell [ref=f2e81]:
+                    - button "Try" [ref=f2e82] [cursor=pointer]
+                - row [ref=f2e83]:
+                  - cell "2" [ref=f2e84]
+                  - cell "Hub refrigerant refresh (re-icing) Cheapest way to cover the buffer" [ref=f2e85]:
+                    - generic [ref=f2e86]: Hub refrigerant refresh (re-icing)
+                    - generic [ref=f2e87]: Cheapest way to cover the buffer
+                  - cell "$120" [ref=f2e90]
+                  - cell "99%" [ref=f2e91]
+                  - cell "40.6 h spare" [ref=f2e92]
+                  - cell "Protects $3.0M batch" [ref=f2e93]
+                  - cell [ref=f2e94]:
+                    - button "Try" [ref=f2e95] [cursor=pointer]
+                - row [ref=f2e96]:
+                  - cell "3" [ref=f2e97]
+                  - cell "Prioritise immediate cold-storage transfer" [ref=f2e98]
+                  - cell "$200" [ref=f2e100]
+                  - cell "99%" [ref=f2e101]
+                  - cell "16.6 h spare" [ref=f2e102]
+                  - cell "Protects $3.0M batch" [ref=f2e103]
+                  - cell [ref=f2e104]:
+                    - button "Try" [ref=f2e105] [cursor=pointer]
+                - row [ref=f2e106]:
+                  - cell "4" [ref=f2e107]
+                  - cell "Assign refrigerated ground transport" [ref=f2e108]
+                  - cell "$500" [ref=f2e110]
+                  - cell "99%" [ref=f2e111]
+                  - cell "64.6 h spare" [ref=f2e112]
+                  - cell "Protects $3.0M batch" [ref=f2e113]
+                  - cell [ref=f2e114]:
+                    - button "Try" [ref=f2e115] [cursor=pointer]
+                - row [ref=f2e116]:
+                  - cell "5" [ref=f2e117]
+                  - cell "Keep monitoring" [ref=f2e118]
+                  - cell "$0" [ref=f2e120]
+                  - cell "99%" [ref=f2e121]
+                  - cell "7.4 h short" [ref=f2e122]
+                  - cell "No change" [ref=f2e123]
+                  - cell [ref=f2e124]:
+                    - button "Try" [ref=f2e125] [cursor=pointer]
+                - row [ref=f2e126]:
+                  - cell [ref=f2e127]
+                  - cell "Hospital emergency stock diversion Backup plan" [ref=f2e128]:
+                    - generic [ref=f2e129]: Hospital emergency stock diversion
+                    - generic [ref=f2e130]: Backup plan
+                  - cell "n/a" [ref=f2e133]
+                  - cell "99%" [ref=f2e134]
+                  - cell "7.4 h short" [ref=f2e135]
+                  - cell "Covers the hospital" [ref=f2e136]
+                  - cell [ref=f2e137]:
+                    - button "Try" [ref=f2e138] [cursor=pointer]
+            - paragraph [ref=f2e139]: A disruption is assumed to cost 10% of cargo value. Fees are example figures. Savings are the model's estimate, not a guarantee. Cargo value and buffer hours are simulated.
+          - generic [ref=f2e140]:
+            - button "Back" [ref=f2e141] [cursor=pointer]
+            - button "Back to alerts" [ref=f2e142] [cursor=pointer]
+        - region "Live impact" [ref=f2e143]:
+          - generic [ref=f2e144]: Disruption risk
+          - generic [ref=f2e145]:
+            - generic [ref=f2e146]:
+              - generic [ref=f2e149]:
+                - generic [ref=f2e150]: "9"
+                - generic [ref=f2e152]: "9"
+              - generic [ref=f2e154]: "%"
+            - generic [ref=f2e157]: Critical
+          - img "Disruption risk 99 percent" [ref=f2e159]
+          - generic [ref=f2e163]:
+            - generic [ref=f2e164]: 0%
+            - generic [ref=f2e165]: Alert line 60%
+            - generic [ref=f2e166]: 100%
+          - generic [ref=f2e167]:
+            - generic [ref=f2e168]:
+              - generic [ref=f2e169]: Cargo
+              - generic [ref=f2e170]: $3.0M
+            - generic [ref=f2e171]:
+              - generic [ref=f2e172]: Thermal runway
+              - generic [ref=f2e173]: 7.4 h short
+              - generic [ref=f2e174]: Batch exposed
+          - generic [ref=f2e175]: Thermal runway
+          - application [ref=f2e178]:
+            - generic [ref=f2e193]:
+              - generic [ref=f2e194]:
+                - generic [ref=f2e195]: "0"
+                - generic [ref=f2e197]: "2"
+                - generic [ref=f2e199]: "4"
+                - generic [ref=f2e201]: "6"
+                - generic [ref=f2e203]: "8"
+                - generic [ref=f2e205]: "10"
+              - generic [ref=f2e207]: Hours from now
+              - generic [ref=f2e208]:
+                - generic [ref=f2e209]: "0"
+                - generic [ref=f2e211]: "3"
+                - generic [ref=f2e213]: "6"
+                - generic [ref=f2e215]: "9"
+              - generic [ref=f2e217]: Unprotected 7.4 h
+              - generic [ref=f2e218]: Arrival
+          - paragraph [ref=f2e219]: Thermal runway is buffer hours minus hours still to go. It counts hours, not temperature.
+    - region "Notifications alt+T"
+  - generic [aria-hidden] [ref=f2e220]: "3"

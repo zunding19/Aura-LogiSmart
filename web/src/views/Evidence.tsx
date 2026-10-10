@@ -26,17 +26,17 @@ export default function Evidence() {
   const mixTotal = mix.reduce((sum, item) => sum + item.count, 0);
   const stages = [
     { verb: "Detect", fig: Number(data.total).toLocaleString("en-US"), text: "shipments scored from 0 to 100% disruption risk." },
-    { verb: "Categorize", fig: Number(data.pharma).toLocaleString("en-US"), text: "pharmaceutical shipments, each tagged as delay, cold-chain excursion or both." },
+    { verb: "Categorize", fig: Number(data.pharma).toLocaleString("en-US"), text: "pharmaceutical shipments, each tagged as delay, cold-chain excursion, both or no dominant cause." },
     { verb: "Prioritize", fig: data.queue_size, text: `air and road alerts at the ${pct(line)} line, ranked. ${data.top_id ?? "None"} is first.` },
     { verb: "Explain", fig: 3, text: "top drivers per shipment, in plain words with a what-if for each." },
-    { verb: "Decide", fig: data.actions, text: "costed actions. The one with the highest net saving is recommended." },
+    { verb: "Decide", fig: data.actions, text: "costed actions, ranked. The highest net saving comes first, then what protects the batch." },
   ];
 
   return (
     <>
       <h1 className="title">How LogiSmart decides, and how often it is right</h1>
       <p className="subtitle">
-        Every figure here comes from the trained model and 1,000 held-out shipments it never saw in training.
+        Every figure here comes from the trained model and 1,000 held-out simulated shipments it never saw in training.
       </p>
       <div className="stage">
         {stages.map((stage, i) => (
@@ -108,7 +108,8 @@ export default function Evidence() {
         </div>
       </div>
       <p className="fine">
-        Assumptions: a disruption costs 10% of cargo value; action fees are example figures.
+        Assumptions: a disruption costs 10% of cargo value; action fees are example figures. Shipments, cargo value, buffer
+        hours and hospital urgency are simulated.
       </p>
     </>
   );

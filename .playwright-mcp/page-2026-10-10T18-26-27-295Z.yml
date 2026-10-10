@@ -1,0 +1,161 @@
+- generic [active] [ref=f2e1]:
+  - generic [ref=f2e3]:
+    - complementary [ref=f2e4]:
+      - generic [ref=f2e5]: LogiSmart
+      - navigation "Screens" [ref=f2e8]:
+        - generic [ref=f2e9]: Operations
+        - button "Command map" [ref=f2e10] [cursor=pointer]
+        - button "Alerts inbox 10" [ref=f2e11] [cursor=pointer]:
+          - text: Alerts inbox
+          - generic [ref=f2e12]: "10"
+        - button "Guided response" [ref=f2e13] [cursor=pointer]
+        - button "What-if simulator" [ref=f2e14] [cursor=pointer]
+        - generic [ref=f2e15]: Proof
+        - button "Evidence" [ref=f2e16] [cursor=pointer]
+      - generic [ref=f2e17]:
+        - generic [ref=f2e18]:
+          - generic [ref=f2e19]:
+            - generic [ref=f2e20]: Alert line
+            - status [ref=f2e21]: 60%
+          - slider "Alert line" [ref=f2e22]: "3"
+        - paragraph [ref=f2e23]: 85% of alerts are real, 70% of disruptions caught on 1,000 test shipments.
+        - paragraph [ref=f2e24]: "Lower line: more caught, more false alarms."
+      - paragraph [ref=f2e25]: Demo on simulated shipments.
+    - main [ref=f2e26]:
+      - generic [ref=f2e27]:
+        - generic [ref=f2e28]: LogiSmart
+        - generic [ref=f2e29]: /
+        - generic [ref=f2e30]: Guided response
+        - generic [ref=f2e31]: 218 pharma alerts at the 60% line
+        - generic [ref=f2e32]: /
+        - generic [ref=f2e33]: 77 false alarms per 1,000 tested
+      - generic [ref=f2e34]:
+        - heading "SC-10206" [level=1] [ref=f2e221]
+        - generic [ref=f2e36]:
+          - generic [ref=f2e37]: Hurricane
+          - generic [ref=f2e39]: Critical Emergency
+          - generic [ref=f2e41]: Storage 2°C to 8°C
+      - paragraph [ref=f2e43]: Dubai to Shanghai by air, 7.4 hours still to go.
+      - group [ref=f2e44]:
+        - 'generic "SLA breach: carrier payment on hold." [ref=f2e45] [cursor=pointer]'
+      - group "Response steps" [ref=f2e46]:
+        - button "1Detect" [ref=f2e47] [cursor=pointer]
+        - button "2Categorize" [ref=f2e48] [cursor=pointer]
+        - button "3Prioritize" [pressed] [ref=f2e49] [cursor=pointer]
+        - button "4Explain" [ref=f2e50] [cursor=pointer]
+        - button "5Decide" [ref=f2e51] [cursor=pointer]
+      - generic [ref=f2e52]:
+        - generic [ref=f2e53]:
+          - generic [ref=f2e54]:
+            - heading "Which first?" [level=2] [ref=f2e222]
+            - generic [ref=f2e223]: Rank 1 of 218
+            - paragraph [ref=f2e224]: A shipment moves up the queue when its risk is higher, its cargo is worth more, the hospital needs it sooner or its buffer is shorter.
+            - generic [ref=f2e225]: Why it ranks here
+            - generic [ref=f2e226]:
+              - generic [ref=f2e227]:
+                - generic [ref=f2e228]: Disruption risk
+                - generic [ref=f2e229]: 99%
+                - generic [ref=f2e230]: Critical
+              - generic [ref=f2e231]:
+                - generic [ref=f2e232]: Cargo at stake
+                - generic [ref=f2e233]: $3.0M
+              - generic [ref=f2e234]:
+                - generic [ref=f2e235]: Hospital need
+                - generic [ref=f2e236]: Critical Emergency
+              - generic [ref=f2e237]:
+                - generic [ref=f2e238]: Buffer left
+                - generic [ref=f2e239]: Used up
+            - paragraph [ref=f2e240]: "Expected loss if nothing is done: $298,181. A disruption is assumed to cost 10% of cargo value."
+            - generic [ref=f2e241]: Next to it in the queue
+            - table [ref=f2e242]:
+              - rowgroup [ref=f2e243]:
+                - row [ref=f2e244]:
+                  - columnheader "Rank" [ref=f2e245]
+                  - columnheader "Shipment" [ref=f2e246]
+                  - columnheader "Risk" [ref=f2e247]
+                  - columnheader "Cargo" [ref=f2e248]
+                  - columnheader "Hospital need" [ref=f2e249]
+                  - columnheader "Buffer" [ref=f2e250]
+              - rowgroup [ref=f2e251]:
+                - row [ref=f2e252]:
+                  - cell "01" [ref=f2e253]
+                  - cell "SC-12132" [ref=f2e254]
+                  - cell "99%" [ref=f2e255]
+                  - cell "$3.0M" [ref=f2e256]
+                  - cell "Critical Emergency" [ref=f2e257]
+                  - cell "Used up" [ref=f2e258]
+                - row [ref=f2e259]:
+                  - cell "02" [ref=f2e260]
+                  - cell "SC-14451" [ref=f2e261]
+                  - cell "99%" [ref=f2e262]
+                  - cell "$1.5M" [ref=f2e263]
+                  - cell "Critical Emergency" [ref=f2e264]
+                  - cell "Used up" [ref=f2e265]
+                - row [ref=f2e266]:
+                  - cell "03" [ref=f2e267]
+                  - cell "SC-10206" [ref=f2e268]
+                  - cell "100%" [ref=f2e269]
+                  - cell "$1.4M" [ref=f2e270]
+                  - cell "Elevated Procedure" [ref=f2e271]
+                  - cell "1.1 h" [ref=f2e272]
+                - row [ref=f2e273]:
+                  - cell "04" [ref=f2e274]
+                  - cell "SC-12668" [ref=f2e275]
+                  - cell "83%" [ref=f2e276]
+                  - cell "$1.8M" [ref=f2e277]
+                  - cell "Elevated Procedure" [ref=f2e278]
+                  - cell "1.5 h" [ref=f2e279]
+                - row [ref=f2e280]:
+                  - cell "05" [ref=f2e281]
+                  - cell "SC-12285" [ref=f2e282]
+                  - cell "99%" [ref=f2e283]
+                  - cell "$996,648" [ref=f2e284]
+                  - cell "Critical Emergency" [ref=f2e285]
+                  - cell "2.0 h" [ref=f2e286]
+            - paragraph [ref=f2e287]: Buffer is hours of cooling left. In a powered container it is how long the cargo holds if the power fails.
+          - generic [ref=f2e140]:
+            - button "Back" [ref=f2e141] [cursor=pointer]
+            - 'button "Next: Why?" [ref=f2e288] [cursor=pointer]'
+        - region "Live impact" [ref=f2e143]:
+          - generic [ref=f2e144]: Disruption risk
+          - generic [ref=f2e145]:
+            - generic [ref=f2e146]:
+              - generic [ref=f2e149]:
+                - generic [ref=f2e150]: "9"
+                - generic [ref=f2e152]: "9"
+              - generic [ref=f2e154]: "%"
+            - generic [ref=f2e157]: Critical
+          - img "Disruption risk 99 percent" [ref=f2e159]
+          - generic [ref=f2e163]:
+            - generic [ref=f2e164]: 0%
+            - generic [ref=f2e165]: Alert line 60%
+            - generic [ref=f2e166]: 100%
+          - generic [ref=f2e167]:
+            - generic [ref=f2e168]:
+              - generic [ref=f2e169]: Cargo
+              - generic [ref=f2e170]: $3.0M
+            - generic [ref=f2e171]:
+              - generic [ref=f2e172]: Thermal runway
+              - generic [ref=f2e173]: 7.4 h short
+              - generic [ref=f2e174]: Batch exposed
+          - generic [ref=f2e175]: Thermal runway
+          - application [ref=f2e178]:
+            - generic [ref=f2e193]:
+              - generic [ref=f2e194]:
+                - generic [ref=f2e195]: "0"
+                - generic [ref=f2e197]: "2"
+                - generic [ref=f2e199]: "4"
+                - generic [ref=f2e201]: "6"
+                - generic [ref=f2e203]: "8"
+                - generic [ref=f2e205]: "10"
+              - generic [ref=f2e207]: Hours from now
+              - generic [ref=f2e208]:
+                - generic [ref=f2e209]: "0"
+                - generic [ref=f2e211]: "3"
+                - generic [ref=f2e213]: "6"
+                - generic [ref=f2e215]: "9"
+              - generic [ref=f2e217]: Unprotected 7.4 h
+              - generic [ref=f2e218]: Arrival
+          - paragraph [ref=f2e219]: Thermal runway is buffer hours minus hours still to go. It counts hours, not temperature.
+    - region "Notifications alt+T"
+  - generic [aria-hidden] [ref=f2e220]: "3"

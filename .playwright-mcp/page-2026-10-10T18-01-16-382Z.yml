@@ -1,0 +1,166 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]: LogiSmart
+    - navigation "Screens" [ref=e8]:
+      - generic [ref=e9]: Operations
+      - button "Command map" [ref=e10] [cursor=pointer]
+      - button "Alerts inbox 12" [ref=e29] [cursor=pointer]:
+        - text: Alerts inbox
+        - generic [ref=e30]: "12"
+      - button "Guided response" [ref=e12] [cursor=pointer]
+      - button "What-if simulator" [ref=e13] [cursor=pointer]
+      - generic [ref=e14]: Proof
+      - button "Evidence" [ref=e15] [cursor=pointer]
+    - generic [ref=e16]:
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e19]: Alert line
+          - status [ref=e20]: 60%
+        - slider "Alert line" [ref=e21]: "3"
+      - paragraph [ref=e31]: 85% of alerts are real, 70% of disruptions caught on 1,000 test shipments.
+      - paragraph [ref=e22]: "Lower line: more caught, more false alarms."
+  - main [active] [ref=e23]:
+    - generic [ref=e24]:
+      - generic [ref=e25]: LogiSmart
+      - generic [ref=e26]: /
+      - generic [ref=e27]: Alerts inbox
+      - generic [ref=e32]: 218 pharma alerts at the 60% line
+      - generic [ref=e33]: /
+      - generic [ref=e34]: 77 false alarms per 1,000 tested
+    - heading "Alerts that need a decision" [level=1] [ref=e380]
+    - paragraph [ref=e381]: Each alert says what went wrong and how long you have. Respond to see the cause and the action that pays.
+    - group "Filter alerts" [ref=e383]:
+      - button "All" [pressed] [ref=e384] [cursor=pointer]
+      - button "SLA breach" [ref=e385] [cursor=pointer]
+      - button "Buffer short" [ref=e386] [cursor=pointer]
+      - button "Weather" [ref=e387] [cursor=pointer]
+      - button "Risk" [ref=e388] [cursor=pointer]
+    - generic [ref=e389]:
+      - generic [ref=e390]:
+        - generic [ref=e391]:
+          - generic [ref=e392]:
+            - generic [ref=e393]: SLA breach
+            - generic [ref=e395]: SC-12132
+            - generic [ref=e396]: Dubai to Shanghai by air
+          - generic [ref=e397]: Carrier payment on hold
+          - generic [ref=e398]: This shipment is very likely to be disrupted (99% risk) and its cold packaging has run out. No fix has been logged yet, so the carrier's payment is on hold. To release it, log a cold-storage transfer, re-icing or refrigerated transport.
+        - generic [ref=e399]: 7.4 h to arrival
+        - button "Respond" [ref=e400] [cursor=pointer]
+      - generic [ref=e401]:
+        - generic [ref=e402]:
+          - generic [ref=e403]:
+            - generic [ref=e404]: SLA breach
+            - generic [ref=e406]: SC-14451
+            - generic [ref=e407]: Dubai to Singapore by air
+          - generic [ref=e408]: Carrier payment on hold
+          - generic [ref=e409]: This shipment is very likely to be disrupted (99% risk) and its cold packaging has run out. No fix has been logged yet, so the carrier's payment is on hold. To release it, log a cold-storage transfer, re-icing or refrigerated transport.
+        - generic [ref=e410]: 9.5 h to arrival
+        - button "Respond" [ref=e411] [cursor=pointer]
+      - generic [ref=e412]:
+        - generic [ref=e413]:
+          - generic [ref=e414]:
+            - generic [ref=e415]: Weather
+            - generic [ref=e417]: SC-10206
+            - generic [ref=e418]: Shanghai to Hamburg by road
+          - generic [ref=e419]: Hurricane on the route
+          - generic [ref=e420]: 100% disruption risk on $1.4M of pharmaceuticals for an Elevated Procedure order.
+        - generic [ref=e421]: 258.0 h to arrival
+        - button "Respond" [ref=e422] [cursor=pointer]
+      - generic [ref=e423]:
+        - generic [ref=e424]:
+          - generic [ref=e425]:
+            - generic [ref=e426]: Weather
+            - generic [ref=e428]: SC-12668
+            - generic [ref=e429]: Dubai to Antwerp by road
+          - generic [ref=e430]: Storm on the route
+          - generic [ref=e431]: 83% disruption risk on $1.8M of pharmaceuticals for an Elevated Procedure order.
+        - generic [ref=e432]: 248.1 h to arrival
+        - button "Respond" [ref=e433] [cursor=pointer]
+      - generic [ref=e434]:
+        - generic [ref=e435]:
+          - generic [ref=e436]:
+            - generic [ref=e437]: Weather
+            - generic [ref=e439]: SC-12285
+            - generic [ref=e440]: Hamburg to Rotterdam by road
+          - generic [ref=e441]: Hurricane on the route
+          - generic [ref=e442]: 99% disruption risk on $996,648 of pharmaceuticals for a Critical Emergency order.
+        - generic [ref=e443]: 525.3 h to arrival
+        - button "Respond" [ref=e444] [cursor=pointer]
+      - generic [ref=e445]:
+        - generic [ref=e446]:
+          - generic [ref=e447]:
+            - generic [ref=e448]: Weather
+            - generic [ref=e450]: SC-14342
+            - generic [ref=e451]: Dubai to Antwerp by road
+          - generic [ref=e452]: Hurricane on the route
+          - generic [ref=e453]: 100% disruption risk on $1.2M of pharmaceuticals for an Elevated Procedure order.
+        - generic [ref=e454]: 827.4 h to arrival
+        - button "Respond" [ref=e455] [cursor=pointer]
+      - generic [ref=e456]:
+        - generic [ref=e457]:
+          - generic [ref=e458]:
+            - generic [ref=e459]: Risk
+            - generic [ref=e461]: SC-13411
+            - generic [ref=e462]: Antwerp to Shanghai by road
+          - generic [ref=e463]: High disruption risk
+          - generic [ref=e464]: 77% disruption risk on $2.1M of pharmaceuticals for a Routine Restock order.
+        - generic [ref=e465]: 74.4 h to arrival
+        - button "Respond" [ref=e466] [cursor=pointer]
+      - generic [ref=e467]:
+        - generic [ref=e468]:
+          - generic [ref=e469]:
+            - generic [ref=e470]: Buffer short
+            - generic [ref=e472]: SC-13003
+            - generic [ref=e473]: Singapore to Busan by air
+          - generic [ref=e474]: Thermal buffer ends 38.6 h before arrival
+          - generic [ref=e475]: 99% disruption risk on $4.4M of pharmaceuticals for a Routine Restock order.
+        - generic [ref=e476]: 42.2 h to arrival
+        - button "Respond" [ref=e477] [cursor=pointer]
+      - generic [ref=e478]:
+        - generic [ref=e479]:
+          - generic [ref=e480]:
+            - generic [ref=e481]: Risk
+            - generic [ref=e483]: SC-14123
+            - generic [ref=e484]: Busan to Hamburg by road
+          - generic [ref=e485]: High disruption risk
+          - generic [ref=e486]: 70% disruption risk on $1.2M of pharmaceuticals for an Elevated Procedure order.
+        - generic [ref=e487]: 264.1 h to arrival
+        - button "Respond" [ref=e488] [cursor=pointer]
+      - generic [ref=e489]:
+        - generic [ref=e490]:
+          - generic [ref=e491]:
+            - generic [ref=e492]: Weather
+            - generic [ref=e494]: SC-13740
+            - generic [ref=e495]: Hamburg to Busan by road
+          - generic [ref=e496]: Hurricane on the route
+          - generic [ref=e497]: 99% disruption risk on $765,273 of pharmaceuticals for an Elevated Procedure order.
+        - generic [ref=e498]: 1407.7 h to arrival
+        - button "Respond" [ref=e499] [cursor=pointer]
+      - generic [ref=e500]:
+        - generic [ref=e501]:
+          - generic [ref=e502]:
+            - generic [ref=e503]: Weather
+            - generic [ref=e505]: SC-12348
+            - generic [ref=e506]: Busan to Hamburg by road
+          - generic [ref=e507]: Hurricane on the route
+          - generic [ref=e508]: 100% disruption risk on $1.1M of pharmaceuticals for an Elevated Procedure order.
+        - generic [ref=e509]: 1128.0 h to arrival
+        - button "Respond" [ref=e510] [cursor=pointer]
+      - generic [ref=e511]:
+        - generic [ref=e512]:
+          - generic [ref=e513]:
+            - generic [ref=e514]: Weather
+            - generic [ref=e516]: SC-12373
+            - generic [ref=e517]: Singapore to Hamburg by road
+          - generic [ref=e518]: Storm on the route
+          - generic [ref=e519]: 84% disruption risk on $1.4M of pharmaceuticals for a Routine Restock order.
+        - generic [ref=e520]: 274.1 h to arrival
+        - button "Respond" [ref=e521] [cursor=pointer]
+  - region "Notifications alt+T":
+    - list:
+      - listitem [ref=e368]:
+        - button "Close toast" [ref=e369] [cursor=pointer]
+        - generic [ref=e376]:
+          - generic [ref=e377]: "SC-12132: Carrier payment on hold"
+          - generic [ref=e378]: Dubai to Shanghai by air
+        - button "Respond" [ref=e379] [cursor=pointer]

@@ -3,7 +3,7 @@ import clsx from "clsx";
 import NumberFlow from "@number-flow/react";
 import { toast } from "sonner";
 import { CostChart } from "../charts";
-import { getJson, hours, pct, postJson, riskColor, riskFill, riskLevel, SERVER_DOWN, usd, type Data } from "../lib";
+import { getJson, hours, pct, postJson, riskColor, riskFill, riskLevel, SERVER_DOWN, usd, verdict, type Data } from "../lib";
 import { useStore } from "../store";
 import { Banner, Blocks, Chip, KV, Meter, Problem, Segmented } from "../ui";
 
@@ -11,6 +11,8 @@ type Form = {
   origin: string; destination: string; mode: "Air" | "Road"; weather: string;
   autoRisk: boolean; risk: number; carrier: number; lead: number; done: number;
   buffer: number; value: number; tier: string;
+  // Kept from a loaded shipment until the route or buffer is changed by hand.
+  distance?: number | null; context?: string | null;
 };
 
 const START: Form = {
@@ -56,6 +58,8 @@ export default function WhatIf({ meta }: { meta: Data }) {
       Hospital_Urgency_Tier: form.tier,
     };
     if (!form.autoRisk) o.Geopolitical_Risk_Score = form.risk;
+    if (form.distance != null) o.Distance_km = form.distance;
+    if (form.context) o.Context_Source = form.context;
     return o;
   }, [form]);
   const samePlace = form.origin === form.destination;
@@ -72,7 +76,7 @@ export default function WhatIf({ meta }: { meta: Data }) {
         .catch(() => undefined);
     }, 60);
     const full = setTimeout(() => {
-      postJson("/api/assess", order)
+      postJson(`/api/assess?line=${line}`, order)
         .then((r) => {
           if (mine !== turn.current) return;
           setResult(r);
@@ -86,7 +90,7 @@ export default function WhatIf({ meta }: { meta: Data }) {
         });
     }, 350);
     return () => { clearTimeout(fast); clearTimeout(full); };
-  }, [order, samePlace]);
+  }, [order, samePlace, line]);
 
   async function loadSelected() {
     if (!selected) return;
@@ -102,8 +106,9 @@ export default function WhatIf({ meta }: { meta: Data }) {
         weather: ship.Weather_Condition ?? "Clear", autoRisk: false,
         risk: clamp(ship.Geopolitical_Risk_Score, 0, 10),
         carrier: clamp(ship.Carrier_Reliability_Score, 0.3, 1),
-        lead: clamp(Math.round(ship.Lead_Time_Days * 2) / 2, 0.5, 15),
-        done: Math.round(clamp((100 * (ship.Elapsed_Transit_Hours_Simulated ?? 0)) / planned, 0, 100)),
+        lead: clamp(ship.Lead_Time_Days, 0.5, 15),
+        done: clamp((100 * (ship.Elapsed_Transit_Hours_Simulated ?? 0)) / planned, 0, 100),
+        distance: ship.Distance_km ?? null, context: data.thermal.buffer_counts_down ? null : "powered container",
         buffer: clamp(ship.Remaining_Buffer_Hours_Simulated ?? 0, 0, 120),
         value: clamp(ship.Cargo_Value_USD_Simulated ?? 50_000, 50_000, 6_000_000),
         tier: meta.tiers.includes(ship.Hospital_Urgency_Tier_Simulated) ? ship.Hospital_Urgency_Tier_Simulated : meta.tiers[0],
@@ -128,7 +133,7 @@ export default function WhatIf({ meta }: { meta: Data }) {
   const p: number | null = quick ?? (ok ? result.risk.p_failure : null);
   const level = p == null ? null : riskLevel(p);
   const best = ok ? (result.actions.options as Data[]).find((o) => o.action_id === result.actions.recommended_action_id) : null;
-  const cover = ok ? (result.actions.options as Data[]).find((o) => o.action_id === result.actions.thermal_action_id) : null;
+  const advice = ok ? verdict(result.actions, result.thermal) : null;
   const assumed: string[] = ok ? (Object.values(result.inferred ?? {}).filter(Boolean) as string[]) : [];
 
   return (
@@ -147,20 +152,20 @@ export default function WhatIf({ meta }: { meta: Data }) {
           <div className="two">
             <div className="field">
               <label htmlFor="wi-origin">Origin</label>
-              <select id="wi-origin" value={form.origin} onChange={(e) => { set({ origin: e.target.value }); setSource(null); }}>
+              <select id="wi-origin" value={form.origin} onChange={(e) => { set({ origin: e.target.value, distance: null }); setSource(null); }}>
                 {(meta.places as string[]).map((place) => <option key={place}>{place}</option>)}
               </select>
             </div>
             <div className="field">
               <label htmlFor="wi-destination">Destination</label>
-              <select id="wi-destination" value={form.destination} onChange={(e) => { set({ destination: e.target.value }); setSource(null); }}>
+              <select id="wi-destination" value={form.destination} onChange={(e) => { set({ destination: e.target.value, distance: null }); setSource(null); }}>
                 {(meta.places as string[]).map((place) => <option key={place}>{place}</option>)}
               </select>
             </div>
           </div>
           <div className="field">
             <span className="label">Mode</span>
-            <div><Segmented label="Transport mode" options={["Air", "Road"] as const} value={form.mode} onChange={(mode) => set({ mode })} /></div>
+            <div><Segmented label="Transport mode" options={["Air", "Road"] as const} value={form.mode} onChange={(mode) => set({ mode, distance: null, context: null })} /></div>
           </div>
           <div className="field">
             <span className="label">Weather on the route</span>
@@ -171,22 +176,22 @@ export default function WhatIf({ meta }: { meta: Data }) {
             </div>
             {source && <p className="fine" style={{ marginTop: 0 }}>{source}</p>}
           </div>
-          <Slider id="wi-carrier" label="Carrier reliability (0 to 1)" value={form.carrier} min={0.3} max={1} step={0.05}
+          <Slider id="wi-carrier" label="Carrier reliability (0 poor, 1 perfect)" value={form.carrier} min={0.3} max={1} step={0.05}
             show={form.carrier.toFixed(2)} onChange={(carrier) => set({ carrier })} />
           <label className="check">
             <input type="checkbox" checked={form.autoRisk} onChange={(e) => set({ autoRisk: e.target.checked })} />
             Route risk from the World Bank stability index
           </label>
           {!form.autoRisk && (
-            <Slider id="wi-risk" label="Route risk (0 to 10)" value={form.risk} min={0} max={10} step={0.1}
+            <Slider id="wi-risk" label="Route risk (0 calm, 10 unstable)" value={form.risk} min={0} max={10} step={0.1}
               show={form.risk.toFixed(1)} onChange={(risk) => set({ risk })} />
           )}
           <Slider id="wi-lead" label="Planned lead time (days)" value={form.lead} min={0.5} max={15} step={0.5}
             show={`${form.lead.toFixed(1)} d`} onChange={(lead) => set({ lead })} />
           <Slider id="wi-done" label="Trip completed" value={form.done} min={0} max={100} step={5}
-            show={`${form.done}%`} onChange={(done) => set({ done })} />
+            show={`${Math.round(form.done)}%`} onChange={(done) => set({ done })} />
           <Slider id="wi-buffer" label="Thermal buffer left (hours)" value={form.buffer} min={0} max={120} step={1}
-            show={`${form.buffer} h`} onChange={(buffer) => set({ buffer })} />
+            show={`${form.buffer} h`} onChange={(buffer) => set({ buffer, context: null })} />
           <Slider id="wi-value" label="Cargo value (USD)" value={form.value} min={50_000} max={6_000_000} step={50_000}
             show={usd(form.value)} onChange={(value) => set({ value })} />
           <div className="field" style={{ marginBottom: 0 }}>
@@ -221,28 +226,29 @@ export default function WhatIf({ meta }: { meta: Data }) {
                     },
                     { label: "Expected loss", value: usd(result.priority.expected_loss_usd), sub: "if nothing is done" },
                     {
-                      label: "Best action", value: best?.title ?? "Keep monitoring", small: true,
-                      sub: <span className={(best?.net_saving_usd ?? 0) > 0 ? "teal" : undefined}>net saving {usd(best?.net_saving_usd)}</span>,
+                      label: "Recommended", value: best?.title ?? "Keep monitoring", small: true,
+                      sub: best?.payoff === "saves" ? <span className="teal">net saving {usd(best.net_saving_usd)}</span>
+                        : best?.payoff === "protects" ? <span className="teal">protects the batch</span> : "nothing pays more",
                     },
                   ]} />
-                  {cover && (
-                    <Banner tone="teal" title={`Buffer gap: ${cover.title}`} style={{ marginTop: 16 }}>
-                      Cheapest action that makes the buffer cover the trip: {usd(cover.action_cost_usd)} fee, runway{" "}
-                      {hours(cover.thermal_runway_hours_after)}.
-                    </Banner>
+                  {advice && (
+                    <Banner tone="teal" title={`Recommended: ${advice.head}`} style={{ marginTop: 16 }}>{advice.text}</Banner>
                   )}
                 </div>
               </section>
 
               <section className={clsx("panel", pending && "pending")}>
                 <h2 className="h2">What each choice leaves at stake</h2>
-                <p className="note">Grey is expected loss after the action, the dark tip is its fee. Teal is the cheapest total.</p>
-                <CostChart options={result.actions.options} cargo={form.value} lossShare={meta.loss_share} />
+                <p className="note">
+                  Each bar is the expected loss left after the action; the dark tip is its fee. Teal is the recommended action.
+                </p>
+                <CostChart options={result.actions.options} cargo={form.value} lossShare={meta.loss_share}
+                  best={result.actions.recommended_action_id} />
               </section>
 
               {result.sweep && (
                 <section className={clsx("panel", pending && "pending")}>
-                  <h2 className="h2" style={{ marginBottom: 12 }}>Same order, five skies</h2>
+                  <h2 className="h2" style={{ marginBottom: 12 }}>Same order in each kind of weather</h2>
                   <KV items={(result.sweep as Data[]).map((s) => ({
                     label: s.weather, labelInk: s.weather === form.weather, value: pct(s.risk), color: riskColor(s.risk),
                     sub: <Blocks share={s.risk} color={riskFill(s.risk)} />,

@@ -552,9 +552,9 @@ def check_sla_status(
     locked = trigger and not proven
 
     if locked:
-        status = "SLA breach notice issued. Carrier payout escrow locked."
+        status = "SLA breach: carrier payment on hold."
     elif trigger:
-        status = "Corrective proof verified. Escrow released."
+        status = "Fix logged. Carrier payment released."
     else:
         status = "Within SLA."
 
@@ -571,11 +571,16 @@ def check_sla_status(
             dict(
                 shipment_id=shipment_id,
                 text=(
-                    f"Disruption risk is {probability:.0%} and only "
-                    f"{buffer:.1f} hours of thermal buffer remain, with no "
-                    "corrective action recorded. Carrier payout is held "
-                    "until a cold-storage transfer, re-icing or "
-                    "refrigerated transport handshake is logged."
+                    "This shipment is very likely to be disrupted "
+                    f"({probability:.0%} risk) and its cold packaging "
+                    + (
+                        "has run out"
+                        if buffer < 0.05
+                        else f"lasts only {buffer:.1f} more hours"
+                    )
+                    + ". No fix has been logged yet, so the carrier's "
+                    "payment is on hold. To release it, log a cold-storage "
+                    "transfer, re-icing or refrigerated transport."
                 ),
             )
             if locked

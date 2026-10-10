@@ -3,7 +3,7 @@ import clsx from "clsx";
 import NumberFlow from "@number-flow/react";
 import { toast } from "sonner";
 import { ThermalChart } from "../charts";
-import { hours, pct, postJson, riskColor, riskLevel, SERVER_DOWN, useApi, usd, type Data, type Tone } from "../lib";
+import { hours, pct, postJson, riskColor, riskLevel, SERVER_DOWN, shown, useApi, usd, verdict, type Data, type Tone } from "../lib";
 import { STEPS, useStore, type Step } from "../store";
 import { Banner, Blocks, Chip, KV, Meter, Problem, Segmented } from "../ui";
 
@@ -30,18 +30,19 @@ function Detect({ data }: { data: Data }) {
         {flagged ? "flagged" : "not flagged"}.
         {risk.model_variant !== "primary" && " The backup model was used because weather is missing."}
       </p>
-      <div className="eyebrow" style={{ marginTop: 24 }}>What the model read</div>
+      <div className="eyebrow" style={{ marginTop: 24 }}>What LogiSmart looked at</div>
       <KV style={{ marginTop: 8, rowGap: 16 }} items={[
         { label: "Weather", value: ship.Weather_Condition ?? "Not entered" },
-        { label: "Route risk", value: `${Number(ship.Geopolitical_Risk_Score).toFixed(1)} / 10` },
-        { label: "Carrier", value: `${Number(ship.Carrier_Reliability_Score).toFixed(2)} / 1` },
-        { label: "Lead time", value: `${Number(ship.Lead_Time_Days).toFixed(1)} d` },
-        { label: "Distance", value: `${Math.round(ship.Distance_km).toLocaleString("en-US")} km` },
+        { label: "Route risk", value: shown(ship.Geopolitical_Risk_Score, 1, " / 10"), sub: "political stability" },
+        { label: "Carrier", value: shown(ship.Carrier_Reliability_Score, 2, " / 1"), sub: "reliability" },
+        { label: "Lead time", value: shown(ship.Lead_Time_Days, 1, " d") },
+        { label: "Distance", value: ship.Distance_km == null ? "Not entered" : `${Math.round(ship.Distance_km).toLocaleString("en-US")} km` },
       ]} />
       <div className="eyebrow" style={{ marginTop: 24 }}>Can you trust the alert?</div>
       <p className="note" style={{ marginTop: 8 }}>
-        On {Number(scorecard.tested_on_shipments).toLocaleString("en-US")} held-out test shipments,{" "}
-        {pct(scorecard.precision)} of alerts were real disruptions and LogiSmart caught about 7 in 10 of them.
+        On {Number(scorecard.tested_on_shipments).toLocaleString("en-US")} held-out test shipments at the {pct(line)} line,{" "}
+        {pct(data.line.precision)} of alerts were real disruptions and LogiSmart caught about{" "}
+        {Math.round(data.line.recall * 10)} in 10 of them.
       </p>
     </>
   );
@@ -58,7 +59,13 @@ function Categorize({ data }: { data: Data }) {
         <Chip>Risk category: {data.explanation.category}</Chip>
       </div>
       <div className="eyebrow" style={{ margin: "24px 0 12px" }}>Warning signs</div>
-      {signs.length === 0 && <p className="note">No warning sign is above its threshold.</p>}
+      {signs.length === 0 && <p className="note">No warning sign is above its warning level.</p>}
+      {signs.length > 1 && (
+        <p className="note" style={{ marginBottom: 12 }}>
+          {signs.length} warning signs are present, so the category is combined. The Explain step shows how much each one
+          moves the risk.
+        </p>
+      )}
       {signs.map((sign) => (
         <div className="driver" key={sign.feature}>
           <div className="top">
@@ -72,36 +79,77 @@ function Categorize({ data }: { data: Data }) {
   );
 }
 
+function bufferLeft(value: number | null | undefined, countsDown: boolean): { value: string; color?: string } {
+  if (value == null) return { value: "Not entered" };
+  if (countsDown && value < 0.05) return { value: "Used up", color: "var(--red)" };
+  return { value: `${Number(value).toFixed(1)} h` };
+}
+
+// What an action wins, in the words of the Decide table.
+function payoff(o: Data): { text: string; win: boolean } {
+  switch (o.payoff) {
+    case "saves": return { text: `Saves ${usd(o.net_saving_usd)}`, win: true };
+    case "protects": return { text: `Protects ${usd(o.cargo_protected_usd)} batch`, win: true };
+    case "backup": return { text: "Covers the hospital", win: false };
+    case "none": return { text: "No change", win: false };
+    default: return { text: `Costs ${usd(o.action_cost_usd)}, no gain`, win: false };
+  }
+}
+
 function Prioritize({ data, id }: { data: Data; id: string }) {
-  const { priority, shipment: ship, risk } = data;
-  const buffer = ship.Remaining_Buffer_Hours_Simulated ?? 0;
+  const { priority, shipment: ship, risk, thermal } = data;
+  const rows: Data[] = data.neighbours;
+  // The four things the ranking weighs, as this shipment has them.
+  const reasons = [
+    { label: "Disruption risk", value: pct(risk.p_failure), sub: riskLevel(risk.p_failure).name, color: riskColor(risk.p_failure) },
+    { label: "Cargo at stake", value: usd(ship.Cargo_Value_USD_Simulated) },
+    { label: "Hospital need", value: ship.Hospital_Urgency_Tier_Simulated ?? "Not entered", small: true },
+    { label: thermal.buffer_counts_down ? "Buffer left" : "Hold if power fails", ...bufferLeft(thermal.buffer_hours, thermal.buffer_counts_down) },
+  ];
   return (
     <>
       <h2 className="h2">{QUESTION.Prioritize}</h2>
       <div className="mid" style={{ marginTop: 12 }}>
-        {data.rank ? `Rank ${data.rank} of ${data.queue_size}` : "Below the alert line"}
+        {data.rank ? `Rank ${data.rank} of ${data.queue_size}` : "Not in the queue"}
       </div>
       <p className="note" style={{ marginTop: 8 }}>
-        Urgency weighs risk, money, the hospital's need and how little buffer is left.
+        {data.rank
+          ? "A shipment moves up the queue when its risk is higher, its cargo is worth more, the hospital needs it sooner or its buffer is shorter."
+          : data.rank_note}
       </p>
-      <div className="formula" style={{ marginTop: 16 }}>
-        urgency = risk x cargo value x urgency weight / max(buffer hours, 0.5)
-        <br />
-        <b>{pct(risk.p_failure)}</b> x <b>{usd(ship.Cargo_Value_USD_Simulated)}</b> x <b>{priority.urgency_weight ?? 0}</b>{" "}
-        ({ship.Hospital_Urgency_Tier_Simulated}) / max(<b>{buffer} h</b>, 0.5)
-      </div>
+      <div className="eyebrow" style={{ marginTop: 24 }}>Why it ranks here</div>
+      <KV style={{ marginTop: 8 }} items={reasons} />
       <p className="note" style={{ marginTop: 16 }}>
-        Expected loss if nothing is done: <b className="ink">{usd(priority.expected_loss_usd)}</b> (risk x 10% of cargo value).
+        Expected loss if nothing is done: <b className="ink">{usd(priority.expected_loss_usd)}</b>. A disruption is assumed to
+        cost {pct(data.loss_share)} of cargo value.
       </p>
-      <div className="eyebrow" style={{ margin: "24px 0 12px" }}>Top of the queue</div>
-      {(data.top5 as Data[]).map((row, i) => (
-        <div className="driver" key={row.id}>
-          <div className="top">
-            <span className={clsx("num", row.id !== id && "soft")}>{String(i + 1).padStart(2, "0")} {row.id}</span>
-            <Blocks share={row.share} n={20} color={row.id === id ? "var(--teal)" : "var(--quiet)"} />
-          </div>
-        </div>
-      ))}
+      {rows.length > 0 && (
+        <>
+          <div className="eyebrow" style={{ margin: "24px 0 8px" }}>Next to it in the queue</div>
+          <table className="matrix">
+            <thead>
+              <tr>
+                {["Rank", "Shipment", "Risk", "Cargo", "Hospital need", "Buffer"].map((head) => (
+                  <th key={head} className="eyebrow" scope="col">{head}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.id} className={clsx(row.id === id && "on")}>
+                  <td className="num">{String(row.rank).padStart(2, "0")}</td>
+                  <td className="num name">{row.id}</td>
+                  <td className="num" style={{ color: riskColor(row.p_failure) }}>{pct(row.p_failure)}</td>
+                  <td className="num">{usd(row.cargo)}</td>
+                  <td>{row.tier}</td>
+                  <td className="num">{bufferLeft(row.buffer_hours, row.counts_down).value}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="fine">Buffer is hours of cooling left. In a powered container it is how long the cargo holds if the power fails.</p>
+        </>
+      )}
     </>
   );
 }
@@ -121,7 +169,7 @@ function Explain({ data }: { data: Data }) {
           <div className="top">
             <span>{driver.label}</span>
             <span className="num soft">
-              {driver.contribution >= 0 ? "+" : ""}{Math.round(driver.contribution * 100)} pts{" "}
+              {driver.contribution >= 0 ? "+" : ""}{Math.round(driver.contribution * 100)} points{" "}
               <Blocks share={Math.abs(driver.contribution)} color={driver.contribution >= 0.2 ? "var(--red)" : "var(--quiet)"} />
             </span>
           </div>
@@ -140,16 +188,19 @@ function Explain({ data }: { data: Data }) {
 function Decide({ data, id, tried }: { data: Data; id: string; tried: string | undefined }) {
   const tryAction = useStore((s) => s.tryAction);
   const actions = data.actions;
+  const advice = verdict(actions, data.thermal);
   return (
     <>
       <h2 className="h2">{QUESTION.Decide}</h2>
+      <Banner tone="teal" title={`Recommended: ${advice.head}`} style={{ margin: "12px 0 16px" }}>{advice.text}</Banner>
       <p className="note" style={{ marginBottom: 12 }}>
-        Try an action to see its result on the right. Nothing is sent to anyone until you commit.
+        Actions are ranked: what pays most first, then what protects the batch. Try one to see its result on the right.
+        Nothing is sent to anyone until you commit.
       </p>
       <table className="matrix">
         <thead>
           <tr>
-            {["Action", "Fee", "Risk after", "Runway after", "Net saving", ""].map((head) => (
+            {["Rank", "Action", "Fee", "Risk after", "Runway after", "What it wins", ""].map((head) => (
               <th key={head} className="eyebrow" scope="col">{head}</th>
             ))}
           </tr>
@@ -160,16 +211,18 @@ function Decide({ data, id, tried }: { data: Data; id: string; tried: string | u
             const backup = aid === "stock_diversion";
             const moved = o.risk_after < o.risk_before - 0.001;
             const runway = o.thermal_runway_hours_after;
+            const wins = payoff(o);
             return (
               <tr key={aid} className={clsx(tried === aid && "on")}>
+                <td className="num">{o.rank ?? ""}</td>
                 <td>
                   <div className="name">{o.title}</div>
                   <div className="chips" style={{ marginTop: 4 }}>
-                    {aid === actions.recommended_action_id && (
+                    {aid === actions.recommended_action_id && o.payoff !== "protects" && (
                       <Chip tone="teal">{aid === "monitor" ? "Nothing pays more" : "Best net saving"}</Chip>
                     )}
                     {aid === actions.thermal_action_id && <Chip tone="teal">Cheapest way to cover the buffer</Chip>}
-                    {aid === actions.backup_action_id && <Chip tone="amber">Backup plan</Chip>}
+                    {backup && <Chip tone={aid === actions.backup_action_id ? "amber" : ""}>Backup plan</Chip>}
                   </div>
                 </td>
                 <td className="num">{backup ? "n/a" : usd(o.action_cost_usd)}</td>
@@ -179,12 +232,10 @@ function Decide({ data, id, tried }: { data: Data; id: string; tried: string | u
                     <td className="num" style={{ color: o.covers_thermal_gap ? "var(--teal)" : (runway ?? 0) < 0 ? "var(--red)" : "var(--text-2)" }}>
                       {hours(runway)}
                     </td>
-                    <td className="num" style={{ color: (o.net_saving_usd ?? 0) > 0 ? "var(--teal)" : "var(--text-2)" }}>
-                      {backup ? "n/a" : usd(o.net_saving_usd)}
-                    </td>
+                    <td style={{ color: wins.win ? "var(--teal)" : "var(--text-2)", fontWeight: wins.win ? 500 : undefined }}>{wins.text}</td>
                     <td>
                       <button type="button" aria-pressed={tried === aid}
-                        className={clsx("btn", (tried === aid || (!tried && aid === actions.recommended_action_id)) && "primary")}
+                        className={clsx("btn", (tried === aid || (!tried && o.rank === 1)) && "primary")}
                         onClick={() => tryAction(id, aid)}>
                         {tried === aid ? "Shown" : "Try"}
                       </button>
@@ -202,8 +253,8 @@ function Decide({ data, id, tried }: { data: Data; id: string; tried: string | u
         </tbody>
       </table>
       <p className="fine">
-        A disruption is assumed to cost 10% of cargo value. Fees are example figures. Savings are the model's estimate,
-        not a guarantee.
+        A disruption is assumed to cost {pct(data.loss_share)} of cargo value. Fees are example figures. Savings are the
+        model's estimate, not a guarantee. Cargo value and buffer hours are simulated.
       </p>
     </>
   );
@@ -239,7 +290,7 @@ function Rail({ data, id, tried }: { data: Data; id: string; tried: string | und
       });
       if (result.ok) {
         toast.success(`${id}: ${result.message}`, {
-          description: corrective ? "Corrective proof is on record. Any SLA escrow is released." : undefined,
+          description: corrective ? "The fix is on record. Any held carrier payment is released." : undefined,
         });
         bump();
       } else {
@@ -257,20 +308,24 @@ function Rail({ data, id, tried }: { data: Data; id: string; tried: string | und
   let outcome: { head: string; text: string; tone?: Tone } | null = null;
   if (option) {
     const fee = usd(option.action_cost_usd);
-    if (option.covers_thermal_gap && !changed) {
-      win = {
-        label: "Batch protected",
-        figure: hours(runway),
-        text: `Thermal runway was ${hours(thermal.runway_hours)}. The ${usd(option.cargo_protected_usd)} batch is protected for a ${fee} fee. The risk score does not move: more cooling does not stop a storm.`,
-      };
-    } else if ((option.net_saving_usd ?? 0) > 0) {
+    if ((option.net_saving_usd ?? 0) > 0) {
+      const cover = (data.actions.options as Data[]).find((o) => o.action_id === data.actions.thermal_action_id);
       win = {
         label: "Net saving",
         figure: (
           <NumberFlow value={Math.round(option.net_saving_usd)}
             format={{ style: "currency", currency: "USD", maximumFractionDigits: 0 }} />
         ),
-        text: `Risk falls from ${pct(before)} to ${pct(now)}. Expected loss avoided, less the ${fee} fee.`,
+        text: `Risk falls from ${pct(before)} to ${pct(now)}. Expected loss avoided, less the ${fee} fee.`
+          + (option.covers_thermal_gap ? " The buffer now covers the trip too."
+            : runway != null && runway < 0 ? ` The buffer is still ${hours(runway)}${cover ? `: add ${cover.title}.` : "."}` : ""),
+      };
+    } else if (option.covers_thermal_gap) {
+      win = {
+        label: "Batch protected",
+        figure: hours(runway),
+        text: `Thermal runway was ${hours(thermal.runway_hours)}. The ${usd(option.cargo_protected_usd)} batch is protected for a ${fee} fee. `
+          + (changed ? `The risk score moves only from ${pct(before)} to ${pct(now)}.` : "The risk score does not move: more cooling does not stop a storm."),
       };
     } else if (tried === "stock_diversion") {
       outcome = { head: "Hospital covered", text: option.effect };
@@ -366,7 +421,7 @@ export default function Guided() {
           <Chip tone={ship.Hospital_Urgency_Tier_Simulated === "Critical Emergency" ? "red" : ""}>
             {ship.Hospital_Urgency_Tier_Simulated ?? "No urgency tier"}
           </Chip>
-          <Chip>Storage {ship.Storage_Standard_Simulated}</Chip>
+          <Chip>Storage {ship.Storage_Standard_Simulated ?? "not entered"}</Chip>
           {data.flag_land_route && <Chip tone="amber">Data check: land route crosses an ocean</Chip>}
         </div>
       </div>
@@ -380,7 +435,7 @@ export default function Guided() {
           <summary>
             <b>{sla.status}</b>
           </summary>
-          <p>{sla.breach_notice ? sla.breach_notice.text : "A corrective handshake with at least 3 hours of buffer is on record."}</p>
+          <p>{sla.breach_notice ? sla.breach_notice.text : "A cooling fix that restores at least 3 hours of buffer has been logged."}</p>
         </details>
       )}
 

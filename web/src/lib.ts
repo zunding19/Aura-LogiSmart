@@ -72,6 +72,58 @@ export function hours(value: number | null | undefined) {
   return value >= 0 ? `${value.toFixed(1)} h spare` : `${(-value).toFixed(1)} h short`;
 }
 
+/** A rounded figure for a sentence: "about $203,000". */
+export function about(value: number) {
+  const step = Math.abs(value) >= 10_000 ? 1_000 : 10;
+  return `about ${usd(Math.round(value / step) * step)}`;
+}
+
+/** A number from the API, or plain words when it is missing. */
+export function shown(value: unknown, digits: number, unit = "") {
+  const n = Number(value);
+  return value == null || !Number.isFinite(n) ? "Not entered" : `${n.toFixed(digits)}${unit}`;
+}
+
+/** The ranked actions in one recommendation: what to do first, what else, and why. */
+export function verdict(actions: Data, thermal: Data): { head: string; text: string } {
+  const options: Data[] = actions.options;
+  const find = (id: string | null) => options.find((o) => o.action_id === id && o.available);
+  const picked = find(actions.recommended_action_id);
+  const best = picked?.payoff === "saves" ? picked : null;
+  const cover = find(actions.thermal_action_id);
+  const backup = find(actions.backup_action_id);
+  const batch = (o: Data) => (o.cargo_protected_usd ? `the ${usd(o.cargo_protected_usd)} batch` : "the batch");
+  const parts: string[] = [];
+  let head = "Keep monitoring";
+
+  if (best) {
+    head = cover ? `${best.title}, then ${cover.title}` : best.title;
+    parts.push(
+      `${best.title} cuts the risk from ${pct(best.risk_before)} to ${pct(best.risk_after)} and saves ` +
+      `${about(best.net_saving_usd)} after its ${usd(best.action_cost_usd)} fee.`,
+    );
+    if (cover) {
+      const left = best.thermal_runway_hours_after;
+      parts.push(
+        `${left != null && left < 0 ? `The buffer would still be ${hours(left)}` : "The buffer is short"}, so add ` +
+        `${cover.title} (${usd(cover.action_cost_usd)}) to protect ${batch(cover)}.`,
+      );
+    } else if (best.covers_thermal_gap) {
+      parts.push("It also makes the buffer cover the trip.");
+    }
+  } else if (cover) {
+    head = cover.title;
+    parts.push(
+      `The buffer is ${hours(thermal.runway_hours)}. ${cover.title} (${usd(cover.action_cost_usd)}) protects ${batch(cover)}.`,
+      actions.flagged ? "No action lowers the disruption risk enough to pay for itself." : "The risk is below the alert line.",
+    );
+  } else {
+    parts.push(actions.flagged ? "No action pays for itself on this shipment." : "The risk is below the alert line, so no action is needed.");
+  }
+  if (backup) parts.push(`Backup plan: ${backup.title}, because no action brings the risk under the alert line.`);
+  return { head, text: parts.join(" ") };
+}
+
 export type Tone = "red" | "amber" | "teal" | "";
 
 export const COLOR = {

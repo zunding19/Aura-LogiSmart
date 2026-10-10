@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { Toaster, toast } from "sonner";
 import { pct, useApi } from "./lib";
 import { ALERT_LINES, VIEW_NAME, useStore, type View } from "./store";
-import { Banner } from "./ui";
+import { Banner, Problem } from "./ui";
 import MapView from "./views/MapView";
 import Inbox from "./views/Inbox";
 import Guided from "./views/Guided";
@@ -15,7 +15,9 @@ export default function App() {
   const { view, line, rev, selected, go, select, setLine } = useStore();
   const queue = useApi(`/api/queue?line=${line}`, rev);
   const meta = useApi("/api/meta");
-  const data = queue.data;
+  // The queue has no status of its own; one only appears when the server could not build it.
+  const failed = !!queue.data?.status;
+  const data = failed ? null : queue.data;
   const open = (data?.alerts ?? []).filter((a: { kind: string }) => a.kind !== "Resolved");
 
   // Open on the most urgent shipment.
@@ -94,6 +96,7 @@ export default function App() {
           )}
           <p className="fine">Lower line: more caught, more false alarms.</p>
         </div>
+        <p className="fine" style={{ padding: "0 8px" }}>Demo on simulated shipments.</p>
       </aside>
 
       <main className="main" ref={main} tabIndex={-1}>
@@ -117,6 +120,7 @@ export default function App() {
           </>
         )}
         {!data && queue.loading && <div className="skeleton" aria-busy="true" />}
+        {failed && <Problem result={queue.data} />}
         {data && view === "map" && <MapView queue={data} coordinates={meta.data?.coordinates ?? {}} />}
         {data && view === "inbox" && <Inbox queue={data} />}
         {data && view === "respond" && <Guided />}
