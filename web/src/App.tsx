@@ -112,13 +112,6 @@ export default function App() {
           <b>LogiSmart</b>
           <span className="sep">/</span>
           <b>{VIEW_NAME[view]}</b>
-          {data && (
-            <>
-              <span className="push num">{data.count} pharma alerts at the {pct(line)} line</span>
-              <span className="sep">/</span>
-              <span className="num">{Math.round(row.false_alarms_per_1000)} false alarms per 1,000 tested</span>
-            </>
-          )}
         </div>
 
         {queue.error && (
