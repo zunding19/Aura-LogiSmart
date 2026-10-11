@@ -290,3 +290,51 @@ details.banner summary:focus-visible { outline: 2px solid var(--teal); outline-o
   .map .mark .pulse { display: none; }
   .btn, .nav, .btn:active, .nav:active { transition: background-color 150ms ease; transform: none; }
 }
+
+/* ---------- command deck: dark rail, dark map and the lead incident strip */
+.side { background: var(--text); border-right: 0; }
+.side .brand-name { color: #fff; }
+.side .brand-mark { border-color: #49c5b6; }
+.side .navlabel, .side > .fine { color: #a3bcba; }
+.side .nav:not([aria-current]) { color: #d5e4e2; }
+.side .nav:not([aria-current]) .count.hot { color: #ff9c8f; }
+@media (hover: hover) and (pointer: fine) {
+  .side .nav:not([aria-current]):hover { background: #1c3d42; }
+}
+.side .nav:focus-visible { outline-color: #49c5b6; }
+
+.map { background: var(--text); border-color: var(--text); }
+.map .land { fill: #1f464b; stroke: var(--text); }
+.map .port { fill: var(--text); stroke: #d5e4e2; }
+.map .port-label { fill: #d5e4e2; stroke: var(--text); }
+.map .mark .dot { stroke: #fff; }
+
+.lead {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 16px 32px; align-items: center;
+  background: var(--text); color: #fff; border-radius: 12px; padding: 20px 24px; margin-bottom: 24px;
+}
+.lead .eyebrow { color: #a3bcba; display: flex; align-items: center; gap: 8px; }
+.lead .live { width: 8px; height: 8px; background: #ff5a4a; animation: blink 1400ms var(--ease-in-out) infinite; }
+@keyframes blink { 50% { opacity: 0.25; } }
+.lead .say { font-size: 24px; line-height: 1.2; letter-spacing: -0.02em; font-weight: 600; margin-top: 8px; }
+.lead .say em { font-style: normal; color: #ff8a7d; }
+.lead .ctx { font-size: 14px; color: #c3d6d4; margin-top: 8px; }
+.lead .stake { text-align: right; }
+.lead .stake .big { font-size: 40px; display: block; margin-top: 8px; }
+.lead .btn.primary { min-height: 44px; padding: 4px 20px; background: #fff; border-color: #fff; color: var(--text); }
+@media (hover: hover) and (pointer: fine) {
+  .lead .btn.primary:hover { background: #cfeee9; border-color: #cfeee9; }
+}
+.lead .btn:focus-visible { outline-color: #fff; }
+@media (max-width: 1100px) {
+  .lead { grid-template-columns: 1fr; }
+  .lead .stake { text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) { .lead .live { animation: none; } }
+
+/* Every screen opens on the same dark band as the map and the rail. */
+.hero { background: var(--text); color: #fff; border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; }
+.hero .title { color: #fff; }
+.hero .subtitle { color: #c3d6d4; margin-bottom: 0 !important; }
+.hero .shiphead { margin-bottom: 8px; }
+.hero .chip { border-color: transparent; }

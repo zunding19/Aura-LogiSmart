@@ -138,11 +138,13 @@ export default function WhatIf({ meta }: { meta: Data }) {
 
   return (
     <>
+      <header className="hero">
       <h1 className="title">What if the order changes?</h1>
       <p className="subtitle">
         Move a control and LogiSmart re-scores the order: risk, thermal runway, the action that pays and what each choice
         leaves at stake.
       </p>
+      </header>
       <div className="cols" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.5fr)" }}>
         <section className="panel" aria-label="Order">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>

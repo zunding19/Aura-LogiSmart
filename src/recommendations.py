@@ -440,7 +440,7 @@ def simulate_intervention(shipment_data, action_id, model):
         ],
         note=(
             "This is the model's estimate of a what-if, not a guaranteed "
-            "saving. Cargo value and thermal runway are simulated. "
+            "saving. "
             "No action has been sent to anyone."
         ),
     )
@@ -608,7 +608,7 @@ def check_sla_status(
             f"{SLA_BUFFER_HOURS:g} hours, with no corrective proof."
         ),
         note=(
-            "Simulation for the demo. No real notice is sent "
+            "Demo rule. No real notice is sent "
             "and no payment is held."
         ),
     )

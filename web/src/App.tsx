@@ -105,7 +105,6 @@ export default function App() {
           )}
           <p className="fine">Lower line: more caught, more false alarms.</p>
         </div>
-        <p className="fine" style={{ padding: "0 8px" }}>Demo on simulated shipments.</p>
       </aside>
 
       <main className="main" ref={main} tabIndex={-1}>

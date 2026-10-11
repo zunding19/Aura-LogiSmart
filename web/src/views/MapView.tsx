@@ -2,6 +2,7 @@ import clsx from "clsx";
 import RouteMap from "../RouteMap";
 import { hours, pct, riskColor, riskFill, riskLevel, useApi, usd, verdict, type Data } from "../lib";
 import { useStore } from "../store";
+import NumberFlow from "@number-flow/react";
 import { Banner, Blocks, Chip, KV, Meter } from "../ui";
 
 // Same weights as URGENCY_WEIGHT in src/prioritize.py.
@@ -88,6 +89,37 @@ function Brief({ id }: { id: string }) {
   );
 }
 
+/** The single most urgent shipment, stated as a sentence, with the way in. */
+function Lead({ row }: { row: Data }) {
+  const go = useStore((s) => s.go);
+  const short = row.runway != null && row.runway < 0;
+  return (
+    <section className="lead" aria-label="Most urgent shipment">
+      <div>
+        <div className="eyebrow"><span className="live" aria-hidden="true" />Most urgent now</div>
+        <div className="say">
+          <span className="num">{row.Shipment_ID}</span>{" "}
+          {short
+            ? <>runs out of thermal buffer <em>{(-row.runway).toFixed(1)} hours before it lands</em></>
+            : <>is at <em>{pct(row.p_failure)} disruption risk</em></>}
+        </div>
+        <div className="ctx">
+          {row.Origin_Port} to {row.Destination_Port} by {String(row.Transport_Mode).toLowerCase()} ·{" "}
+          {row.Weather_Condition} · {row.Hospital_Urgency_Tier_Simulated} · {pct(row.p_failure)} disruption risk
+        </div>
+      </div>
+      <div className="stake">
+        <div className="eyebrow" style={{ justifyContent: "flex-end" }}>Cargo at stake</div>
+        <NumberFlow className="big" value={row.Cargo_Value_USD_Simulated}
+          format={{ style: "currency", currency: "USD", notation: "compact", minimumFractionDigits: 1, maximumFractionDigits: 1 }} />
+      </div>
+      <button type="button" className="btn primary" onClick={() => go("respond", row.Shipment_ID, "Detect")}>
+        Respond now
+      </button>
+    </section>
+  );
+}
+
 export default function MapView({ queue, coordinates }: { queue: Data; coordinates: Record<string, [number, number]> }) {
   const { selected, select, line } = useStore();
   const top: Data[] = queue.top;
@@ -97,14 +129,18 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
 
   return (
     <>
+      <header className="hero">
       <h1 className="title">Which shipment needs you first</h1>
       <p className="subtitle">
         The ten most urgent pharmaceutical shipments, ranked by risk, cargo value, hospital urgency and hours of thermal
-        buffer left. Pick one on the map or in the queue. Shipments are simulated.
+        buffer left. Pick one on the map or in the queue.
       </p>
+      </header>
       {top.length === 0 ? (
         <Banner title="No alerts at this line">Lower the alert line in the sidebar to see more shipments.</Banner>
       ) : (
+        <>
+        <Lead row={top[0]} />
         <div className="cols" style={{ gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 1fr)" }}>
           <div>
             <section className="panel">
@@ -146,6 +182,7 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
             ))}
           </section>
         </div>
+        </>
       )}
     </>
   );

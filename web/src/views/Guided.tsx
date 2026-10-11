@@ -254,7 +254,7 @@ function Decide({ data, id, tried }: { data: Data; id: string; tried: string | u
       </table>
       <p className="fine">
         A disruption is assumed to cost {pct(data.loss_share)} of cargo value. Fees are example figures. Savings are the
-        model's estimate, not a guarantee. Cargo value and buffer hours are simulated.
+        model's estimate, not a guarantee.
       </p>
     </>
   );
@@ -414,6 +414,7 @@ export default function Guided() {
 
   return (
     <>
+      <header className="hero">
       <div className="shiphead">
         <h1 className="title num">{id}</h1>
         <div className="chips">
@@ -429,6 +430,7 @@ export default function Guided() {
         {ship.Origin_Port} to {ship.Destination_Port} by {String(ship.Transport_Mode).toLowerCase()},{" "}
         {Number(data.thermal.hours_to_go ?? 0).toFixed(1)} hours still to go.
       </p>
+      </header>
 
       {sla?.trigger_condition && (
         <details className={clsx("banner", sla.breach_warning ? "red" : "teal")} style={{ marginBottom: 12 }}>

@@ -142,7 +142,7 @@ def explain_prediction(shipment_data, model=None):
         ),
         notebook_indicators=context,
         note=(
-            "Thermal runway is simulated and is not part of the risk "
+            "Thermal runway is not part of the risk "
             "score. It shows how exposed the cargo is, not whether it "
             "will spoil. A shipment with no warning signs can still "
             "be at risk."

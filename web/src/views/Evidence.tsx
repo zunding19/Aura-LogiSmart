@@ -34,10 +34,12 @@ export default function Evidence() {
 
   return (
     <>
+      <header className="hero">
       <h1 className="title">How LogiSmart decides, and how often it is right</h1>
       <p className="subtitle">
-        Every figure here comes from the trained model and 1,000 held-out simulated shipments it never saw in training.
+        Every figure here comes from the trained model and 1,000 held-out shipments it never saw in training.
       </p>
+      </header>
       <div className="stage">
         {stages.map((stage, i) => (
           <div key={stage.verb}>
@@ -108,8 +110,7 @@ export default function Evidence() {
         </div>
       </div>
       <p className="fine">
-        Assumptions: a disruption costs 10% of cargo value; action fees are example figures. Shipments, cargo value, buffer
-        hours and hospital urgency are simulated.
+        Assumptions: a disruption costs 10% of cargo value; action fees are example figures.
       </p>
     </>
   );

@@ -17,10 +17,12 @@ export default function Inbox({ queue }: { queue: Data }) {
 
   return (
     <>
+      <header className="hero">
       <h1 className="title">Alerts that need a decision</h1>
       <p className="subtitle">
         Each alert says what went wrong and how long you have. Respond to see the cause and the action that pays.
       </p>
+      </header>
       <div style={{ marginBottom: 16 }}>
         <Segmented label="Filter alerts" options={kinds} value={filter} onChange={setPick}
           render={(kind) => (
