@@ -32,7 +32,7 @@ LogiSmart scores every active shipment and walks the coordinator through five st
 | Explain | Why? | The top 3 reasons in plain words, for example "Hurricane on the route. In clear weather the risk would be 46% instead of 99%." |
 | Decide | What should we do? | Each action with its fee, the risk before and after, the net saving and the thermal runway gained |
 
-It also includes a simulated Smart SLA (a breach notice and escrow lock when risk is above 80% and the buffer is under 3 hours) and a digital custody handshake that releases the escrow once a corrective action is logged.
+It also includes a Smart SLA (a breach notice and escrow lock when risk is above 80% and the buffer is under 3 hours) and a digital custody handshake that releases the escrow once a corrective action is logged.
 
 ## Does the model work?
 
@@ -50,10 +50,10 @@ The model also holds up when its inputs are imperfect: scores barely move with 3
 
 ## What is real and what is assumed
 
-- **The shipments are simulated.** The dataset is general cargo (5,000 shipments, 1,006 of them pharmaceuticals) and looks generated. The scores show that the method works, not how it would score on a real carrier's records.
+- **The shipments are not real carrier records.** The dataset is general cargo (5,000 shipments, 1,006 of them pharmaceuticals) and looks generated. The scores show that the method works, not how it would score on a real carrier's records.
 - **LogiSmart covers air and road shipments.** Sea and rail are out of scope. The model still learns from all four modes, because mode does not change how often a shipment is disrupted. On air and road test shipments alone it scores precision 86% and recall 74%.
 - **The model predicts disruption, not spoilage.** The data records only whether a shipment was disrupted. Thermal runway (buffer hours left against hours still to go) shows whether the cargo would survive that disruption.
-- **Cargo value, storage standard, thermal buffer and hospital urgency are simulated** by `src/build_dataset.py`. They are used for ranking and money, never as model inputs.
+- **Cargo value, storage standard, thermal buffer and hospital urgency are generated** by `src/build_dataset.py`. They are used for ranking and money, never as model inputs.
 - **Action fees, action effects and the cost of a disruption (10% of cargo value) are assumptions.** A real team would replace them with its own figures.
 - **Weather** for a newly entered order can be filled in live from Open-Meteo (the worse of the current weather at the two ends of the route). If the service cannot be reached, a backup model scores the order without weather.
 - **Route risk** for a newly entered order comes from the World Bank political stability index (2025), converted to a 0 to 10 score. It is a yearly figure. A live source such as ACLED can be plugged in later.
