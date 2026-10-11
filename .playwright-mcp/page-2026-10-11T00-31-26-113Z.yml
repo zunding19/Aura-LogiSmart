@@ -1,0 +1,119 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]: LogiSmart
+      - navigation "Screens" [ref=e8]:
+        - generic [ref=e9]: Operations
+        - button "Command map" [ref=e10] [cursor=pointer]
+        - button "Alerts inbox 10" [ref=e29] [cursor=pointer]:
+          - text: Alerts inbox
+          - generic [ref=e30]: "10"
+        - button "Guided response" [ref=e12] [cursor=pointer]
+        - button "What-if simulator" [ref=e13] [cursor=pointer]
+        - generic [ref=e14]: Proof
+        - button "Evidence" [ref=e15] [cursor=pointer]
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - generic [ref=e19]: Alert line
+            - status [ref=e20]: 60%
+          - slider "Alert line" [ref=e21]: "3"
+        - generic [ref=e31]:
+          - generic [ref=e35]:
+            - generic [ref=e36]: "2"
+            - generic [ref=e38]: "1"
+            - generic [ref=e40]: "8"
+          - generic [ref=e42]: pharma shipments flagged
+        - paragraph [ref=e43]: 85% of alerts are real, 70% of disruptions caught on 1,000 test shipments.
+        - paragraph [ref=e22]: "Lower line: more caught, more false alarms."
+    - main [active] [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]: LogiSmart
+        - generic [ref=e26]: /
+        - generic [ref=e27]: Guided response
+      - generic [ref=e493]:
+        - generic [ref=e494]:
+          - heading "SC-12132" [level=1] [ref=e495]
+          - generic [ref=e496]:
+            - generic [ref=e497]: Hurricane
+            - generic [ref=e499]: Critical Emergency
+            - generic [ref=e501]: Storage 2°C to 8°C
+        - paragraph [ref=e503]: Dubai to Shanghai by air, 7.4 hours still to go.
+      - group [ref=e504]:
+        - 'generic "SLA breach: carrier payment on hold." [ref=e505] [cursor=pointer]'
+      - group "Response steps" [ref=e506]:
+        - button "1Detect" [pressed] [ref=e507] [cursor=pointer]
+        - button "2Categorize" [ref=e508] [cursor=pointer]
+        - button "3Prioritize" [ref=e509] [cursor=pointer]
+        - button "4Explain" [ref=e510] [cursor=pointer]
+        - button "5Decide" [ref=e511] [cursor=pointer]
+      - generic [ref=e512]:
+        - generic [ref=e513]:
+          - generic [ref=e514]:
+            - heading "Will it be disrupted?" [level=2] [ref=e515]
+            - paragraph [ref=e516]: LogiSmart scores this shipment at 99%. The alert line is 60%, so it is flagged.
+            - generic [ref=e517]: What LogiSmart looked at
+            - generic [ref=e518]:
+              - generic [ref=e519]:
+                - generic [ref=e520]: Weather
+                - generic [ref=e521]: Hurricane
+              - generic [ref=e522]:
+                - generic [ref=e523]: Route risk
+                - generic [ref=e524]: 6.2 / 10
+                - generic [ref=e525]: political stability
+              - generic [ref=e526]:
+                - generic [ref=e527]: Carrier
+                - generic [ref=e528]: 0.71 / 1
+                - generic [ref=e529]: reliability
+              - generic [ref=e530]:
+                - generic [ref=e531]: Lead time
+                - generic [ref=e532]: 5.3 d
+              - generic [ref=e533]:
+                - generic [ref=e534]: Distance
+                - generic [ref=e535]: 8,616 km
+            - generic [ref=e536]: Can you trust the alert?
+            - paragraph [ref=e537]: On 1,000 held-out test shipments at the 60% line, 85% of alerts were real disruptions and LogiSmart caught about 7 in 10 of them.
+          - 'button "Next: What kind of trouble?" [ref=e539] [cursor=pointer]'
+        - region "Live impact" [ref=e540]:
+          - generic [ref=e541]: Disruption risk
+          - generic [ref=e542]:
+            - generic [ref=e543]:
+              - generic [ref=e546]:
+                - generic [ref=e547]: "9"
+                - generic [ref=e549]: "9"
+              - generic [ref=e551]: "%"
+            - generic [ref=e554]: Critical
+          - img "Disruption risk 99 percent" [ref=e556]
+          - generic [ref=e560]:
+            - generic [ref=e561]: 0%
+            - generic [ref=e562]: Alert line 60%
+            - generic [ref=e563]: 100%
+          - generic [ref=e564]:
+            - generic [ref=e565]:
+              - generic [ref=e566]: Cargo
+              - generic [ref=e567]: $3.0M
+            - generic [ref=e568]:
+              - generic [ref=e569]: Thermal runway
+              - generic [ref=e570]: 7.4 h short
+              - generic [ref=e571]: Batch exposed
+          - generic [ref=e572]: Thermal runway
+          - application [ref=e575]:
+            - generic [ref=e590]:
+              - generic [ref=e591]:
+                - generic [ref=e592]: "0"
+                - generic [ref=e594]: "2"
+                - generic [ref=e596]: "4"
+                - generic [ref=e598]: "6"
+                - generic [ref=e600]: "8"
+                - generic [ref=e602]: "10"
+              - generic [ref=e604]: Hours from now
+              - generic [ref=e605]:
+                - generic [ref=e606]: "0"
+                - generic [ref=e608]: "3"
+                - generic [ref=e610]: "6"
+                - generic [ref=e612]: "9"
+              - generic [ref=e614]: Unprotected 7.4 h
+              - generic [ref=e615]: Arrival
+          - paragraph [ref=e616]: Thermal runway is buffer hours minus hours still to go. It counts hours, not temperature.
+    - region "Notifications alt+T"
+  - generic [aria-hidden] [ref=e617]: "3"

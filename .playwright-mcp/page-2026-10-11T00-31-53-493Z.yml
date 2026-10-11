@@ -1,0 +1,164 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]: LogiSmart
+      - navigation "Screens" [ref=e8]:
+        - button "Command map" [ref=e10] [cursor=pointer]
+        - button "Alerts inbox 10" [ref=e29] [cursor=pointer]:
+          - text: Alerts inbox
+          - generic [ref=e30]: "10"
+        - button "Guided response" [ref=e12] [cursor=pointer]
+        - button "What-if simulator" [ref=e13] [cursor=pointer]
+        - button "Evidence" [ref=e15] [cursor=pointer]
+    - main [active] [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]: LogiSmart
+        - generic [ref=e26]: /
+        - generic [ref=e27]: Guided response
+      - generic [ref=e759]:
+        - generic [ref=e760]:
+          - heading "SC-12132" [level=1] [ref=e761]
+          - generic [ref=e762]:
+            - generic [ref=e763]: Hurricane
+            - generic [ref=e765]: Critical Emergency
+            - generic [ref=e767]: Storage 2°C to 8°C
+        - paragraph [ref=e769]: Dubai to Shanghai by air, 7.4 hours still to go.
+      - group [ref=e770]:
+        - 'generic "SLA breach: carrier payment on hold." [ref=e771] [cursor=pointer]'
+      - group "Response steps" [ref=e772]:
+        - button "1Detect" [ref=e773] [cursor=pointer]
+        - button "2Categorize" [ref=e774] [cursor=pointer]
+        - button "3Prioritize" [ref=e775] [cursor=pointer]
+        - button "4Explain" [ref=e776] [cursor=pointer]
+        - button "5Decide" [pressed] [ref=e777] [cursor=pointer]
+      - generic [ref=e778]:
+        - generic [ref=e779]:
+          - generic [ref=e780]:
+            - heading "What to do?" [level=2] [ref=e781]
+            - generic [ref=e782]:
+              - text: "Recommended: Move to next available direct flight, then Hub refrigerant refresh (re-icing)"
+              - paragraph [ref=e783]: Move to next available direct flight cuts the risk from 99% to 31% and saves about $203,000 after its $450 fee. The buffer would still be 1.1 h short, so add Hub refrigerant refresh (re-icing) ($120) to protect the $3.0M batch.
+            - paragraph [ref=e784]: "Actions are ranked: what pays most first, then what protects the batch. Try one to see its result on the right. Nothing is sent to anyone until you commit."
+            - table [ref=e785]:
+              - rowgroup [ref=e786]:
+                - row [ref=e787]:
+                  - columnheader "#" [ref=e788]
+                  - columnheader "Action" [ref=e789]
+                  - columnheader "Fee" [ref=e790]
+                  - columnheader "Risk after" [ref=e791]
+                  - columnheader "Runway after" [ref=e792]
+                  - columnheader "What it wins" [ref=e793]
+                  - columnheader [ref=e794]
+              - rowgroup [ref=e795]:
+                - row [ref=e796]:
+                  - cell "1" [ref=e797]
+                  - cell "Move to next available direct flight Best net saving" [ref=e798]:
+                    - generic [ref=e799]: Move to next available direct flight
+                    - generic [ref=e800]: Best net saving
+                  - cell "$450" [ref=e803]
+                  - cell "31%" [ref=e804]
+                  - cell "1.1 h short" [ref=e805]
+                  - cell "Saves $203,357" [ref=e806]
+                  - cell [ref=e807]:
+                    - button "Try" [ref=e808] [cursor=pointer]
+                - row [ref=e809]:
+                  - cell "2" [ref=e810]
+                  - cell "Hub refrigerant refresh (re-icing) Cheapest way to cover the buffer" [ref=e811]:
+                    - generic [ref=e812]: Hub refrigerant refresh (re-icing)
+                    - generic [ref=e813]: Cheapest way to cover the buffer
+                  - cell "$120" [ref=e816]
+                  - cell "99%" [ref=e817]
+                  - cell "40.6 h spare" [ref=e818]
+                  - cell "Protects $3.0M batch" [ref=e819]
+                  - cell [ref=e820]:
+                    - button "Shown" [pressed] [ref=e821] [cursor=pointer]
+                - row [ref=e822]:
+                  - cell "3" [ref=e823]
+                  - cell "Prioritise immediate cold-storage transfer" [ref=e824]
+                  - cell "$200" [ref=e826]
+                  - cell "99%" [ref=e827]
+                  - cell "16.6 h spare" [ref=e828]
+                  - cell "Protects $3.0M batch" [ref=e829]
+                  - cell [ref=e830]:
+                    - button "Try" [ref=e831] [cursor=pointer]
+                - row [ref=e832]:
+                  - cell "4" [ref=e833]
+                  - cell "Assign refrigerated ground transport" [ref=e834]
+                  - cell "$500" [ref=e836]
+                  - cell "99%" [ref=e837]
+                  - cell "64.6 h spare" [ref=e838]
+                  - cell "Protects $3.0M batch" [ref=e839]
+                  - cell [ref=e840]:
+                    - button "Try" [ref=e841] [cursor=pointer]
+                - row [ref=e842]:
+                  - cell "5" [ref=e843]
+                  - cell "Keep monitoring" [ref=e844]
+                  - cell "$0" [ref=e846]
+                  - cell "99%" [ref=e847]
+                  - cell "7.4 h short" [ref=e848]
+                  - cell "No change" [ref=e849]
+                  - cell [ref=e850]:
+                    - button "Try" [ref=e851] [cursor=pointer]
+                - row [ref=e852]:
+                  - cell [ref=e853]
+                  - cell "Hospital emergency stock diversion Backup plan" [ref=e854]:
+                    - generic [ref=e855]: Hospital emergency stock diversion
+                    - generic [ref=e856]: Backup plan
+                  - cell "n/a" [ref=e859]
+                  - cell "99%" [ref=e860]
+                  - cell "7.4 h short" [ref=e861]
+                  - cell "Covers the hospital" [ref=e862]
+                  - cell [ref=e863]:
+                    - button "Try" [ref=e864] [cursor=pointer]
+            - paragraph [ref=e865]: A disruption is assumed to cost 10% of cargo value. Fees are example figures. Savings are the model's estimate, not a guarantee.
+          - generic [ref=e866]:
+            - button "Back" [ref=e867] [cursor=pointer]
+            - button "Back to alerts" [ref=e868] [cursor=pointer]
+        - region "Live impact" [ref=e869]:
+          - generic [ref=e870]:
+            - generic [ref=e871]: Batch protected
+            - generic [ref=e872]: 40.6 h spare
+            - paragraph [ref=e873]: "Thermal runway was 7.4 h short. The $3.0M batch is protected for a $120 fee. The risk score does not move: more cooling does not stop a storm."
+            - button "Commit and log handshake" [ref=e874] [cursor=pointer]
+          - generic [ref=e875]: Disruption risk after action
+          - generic [ref=e876]:
+            - generic [ref=e877]:
+              - generic [ref=e880]:
+                - generic [ref=e881]: "9"
+                - generic [ref=e883]: "9"
+              - generic [ref=e885]: "%"
+            - generic [ref=e888]: Critical
+          - img "Disruption risk 99 percent" [ref=e890]
+          - generic [ref=e894]:
+            - generic [ref=e895]: 0%
+            - generic [ref=e896]: Alert line 60%
+            - generic [ref=e897]: 100%
+          - generic [ref=e898]:
+            - generic [ref=e899]:
+              - generic [ref=e900]: Cargo
+              - generic [ref=e901]: $3.0M
+            - generic [ref=e902]:
+              - generic [ref=e903]: Thermal runway
+              - generic [ref=e904]: 40.6 h spare
+              - generic [ref=e905]: Batch protected
+          - generic [ref=e906]: Thermal runway
+          - application [ref=e909]:
+            - generic [ref=e927]:
+              - generic [ref=e928]:
+                - generic [ref=e929]: "0"
+                - generic [ref=e931]: "2"
+                - generic [ref=e933]: "4"
+                - generic [ref=e935]: "6"
+                - generic [ref=e937]: "8"
+                - generic [ref=e939]: "10"
+              - generic [ref=e941]: Hours from now
+              - generic [ref=e942]:
+                - generic [ref=e943]: "0"
+                - generic [ref=e945]: "15"
+                - generic [ref=e947]: "30"
+                - generic [ref=e949]: "45"
+                - generic [ref=e951]: "55"
+              - generic [ref=e953]: Arrival
+          - paragraph [ref=e954]: Thermal runway is buffer hours minus hours still to go. It counts hours, not temperature.
+    - region "Notifications alt+T"
+  - generic [aria-hidden] [ref=e617]: "15"
