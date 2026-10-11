@@ -4,9 +4,17 @@ import { hours, pct, riskColor, riskFill, riskLevel, useApi, usd, verdict, type 
 import { useStore } from "../store";
 import { Banner, Blocks, Chip, KV, Meter } from "../ui";
 
-function QueueRow({ row, rank, on, logged }: { row: Data; rank: number; on: boolean; logged: boolean }) {
+// Same weights as URGENCY_WEIGHT in src/prioritize.py.
+const TIER_WEIGHT: Record<string, number> = { "Routine Restock": 1, "Elevated Procedure": 1.5, "Critical Emergency": 2.5 };
+
+function QueueRow({ row, rank, on, logged, best }: { row: Data; rank: number; on: boolean; logged: boolean; best: number }) {
   const { go, select } = useStore();
   const color = riskColor(row.p_failure);
+  // Urgency is shown against the top row, so the first shipment reads 100.
+  const share = best > 0 ? row.urgency_score / best : 0;
+  const index = share >= 0.1 ? Math.round(share * 100) : Math.round(share * 1000) / 10;
+  const weight = TIER_WEIGHT[row.Hospital_Urgency_Tier_Simulated];
+  const buffer = Math.max(row.Remaining_Buffer_Hours_Simulated, 0.5);
   return (
     // A click anywhere on the row selects it on the map; the button opens the response.
     <div className={clsx("qrow", on && "on")} onClick={() => select(row.Shipment_ID)}>
@@ -21,11 +29,20 @@ function QueueRow({ row, rank, on, logged }: { row: Data; rank: number; on: bool
           {usd(row.Cargo_Value_USD_Simulated)} ·{" "}
           {row.runway == null ? "powered container" : <span className={row.runway < 0 ? "red" : undefined}>runway {hours(row.runway)}</span>}
         </div>
+        <div className="urgency">
+          <span className="score">Urgency {index}</span>
+          <span className="bar" aria-hidden="true"><i style={{ width: `${Math.max(share * 100, 2)}%` }} /></span>
+        </div>
+        {weight && (
+          <div className="meta sum">
+            {pct(row.p_failure)} risk × {usd(row.Cargo_Value_USD_Simulated)} × {weight} urgency ÷ {buffer.toFixed(1)} h buffer
+          </div>
+        )}
         {logged && <div className="chips"><Chip tone="teal">Action logged</Chip></div>}
       </div>
       <div className="risk" style={{ color }}>
         {pct(row.p_failure)}
-        <div className="level">{riskLevel(row.p_failure).name}</div>
+        <div className="level">{riskLevel(row.p_failure).name} risk</div>
         <small><Blocks share={row.p_failure} color={riskFill(row.p_failure)} /></small>
       </div>
       <button type="button" className={clsx("btn", on && "primary")} aria-label={`Respond to ${row.Shipment_ID}`}
@@ -119,9 +136,13 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
                 Lowering the line adds lower-risk shipments further down. These ten stay on top because they are far above it.
               </p>
             )}
+            <p className="fine" style={{ margin: "-4px 0 12px" }}>
+              The order follows the urgency score, not the risk % alone: risk × cargo value × hospital urgency ÷ buffer
+              hours left. The top shipment is 100. A higher risk % can rank lower when less money or more buffer is at stake.
+            </p>
             {top.map((row, i) => (
               <QueueRow key={row.Shipment_ID} row={row} rank={i + 1} on={row.Shipment_ID === selected}
-                logged={logged.has(row.Shipment_ID)} />
+                logged={logged.has(row.Shipment_ID)} best={top[0].urgency_score} />
             ))}
           </section>
         </div>

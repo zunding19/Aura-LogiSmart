@@ -190,6 +190,11 @@ input[type="range"] { width: 100%; accent-color: var(--teal); height: 24px; marg
 .qrow .meta { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .qrow .meta + .meta { margin-top: 2px; }
 .qrow .chips { margin-top: 8px; }
+.qrow .urgency { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.qrow .urgency .score { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.qrow .urgency .bar { flex: 1; max-width: 120px; height: 4px; background: var(--block-off); }
+.qrow .urgency .bar i { display: block; height: 100%; background: var(--teal); }
+.qrow .meta.sum { font-family: var(--mono); font-size: 12px; }
 .qrow .risk { text-align: right; font-family: var(--mono); font-size: 18px; font-weight: 600; }
 .qrow .risk small { display: block; margin-top: 4px; }
 .qrow .risk .level { font-family: var(--font); font-size: 13px; font-weight: 500; }
