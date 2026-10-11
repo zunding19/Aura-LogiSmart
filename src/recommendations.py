@@ -200,13 +200,30 @@ def predict_failure_risk(features_df, model):
     return predict(features_df, model)
 
 
+_PREDICTION_CACHE = {}
+
+
 def _predict_one(shipment, model):
+    """Score one shipment; the same model inputs are scored once and reused."""
     if model is None:
         raise ShipmentValidationError(
             "Load the existing notebook 05 artifact "
             "before comparing scenarios."
         )
 
+    from src.schema import RAW_MODEL_INPUT_COLUMNS
+
+    key = (id(model),) + tuple(
+        repr(shipment.get(column)) for column in RAW_MODEL_INPUT_COLUMNS
+    )
+    if key not in _PREDICTION_CACHE:
+        if len(_PREDICTION_CACHE) > 4096:
+            _PREDICTION_CACHE.clear()
+        _PREDICTION_CACHE[key] = _score_one(shipment, model)
+    return _PREDICTION_CACHE[key]
+
+
+def _score_one(shipment, model):
     from src.features import extract_features
 
     prediction = predict_failure_risk(

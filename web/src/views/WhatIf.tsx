@@ -88,7 +88,7 @@ export default function WhatIf({ meta }: { meta: Data }) {
           setResult({ status: "Cannot reach LogiSmart's server", reason: SERVER_DOWN });
           setPending(false);
         });
-    }, 350);
+    }, 150);
     return () => { clearTimeout(fast); clearTimeout(full); };
   }, [order, samePlace, line]);
 

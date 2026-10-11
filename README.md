@@ -4,6 +4,8 @@
 
 **Team Aura:** Han Zun Ding, Chen Zhe Tein, Ryan Hew Ka Shing
 
+**Live demo:** https://dormathon-2026-nine.vercel.app
+
 ---
 
 ## The problem
