@@ -5,17 +5,12 @@ import { useStore } from "../store";
 import NumberFlow from "@number-flow/react";
 import { Banner, Blocks, Chip, KV, Meter } from "../ui";
 
-// Same weights as URGENCY_WEIGHT in src/prioritize.py.
-const TIER_WEIGHT: Record<string, number> = { "Routine Restock": 1, "Elevated Procedure": 1.5, "Critical Emergency": 2.5 };
-
 function QueueRow({ row, rank, on, logged, best }: { row: Data; rank: number; on: boolean; logged: boolean; best: number }) {
   const { go, select } = useStore();
   const color = riskColor(row.p_failure);
   // Urgency is shown against the top row, so the first shipment reads 100.
   const share = best > 0 ? row.urgency_score / best : 0;
   const index = share >= 0.1 ? Math.round(share * 100) : Math.round(share * 1000) / 10;
-  const weight = TIER_WEIGHT[row.Hospital_Urgency_Tier_Simulated];
-  const buffer = Math.max(row.Remaining_Buffer_Hours_Simulated, 0.5);
   return (
     // A click anywhere on the row selects it on the map; the button opens the response.
     <div className={clsx("qrow", on && "on")} onClick={() => select(row.Shipment_ID)}>
@@ -25,20 +20,14 @@ function QueueRow({ row, rank, on, logged, best }: { row: Data; rank: number; on
         <div className="route">
           {row.Origin_Port} to {row.Destination_Port} by {String(row.Transport_Mode).toLowerCase()}
         </div>
-        <div className="meta">{row.Weather_Condition} · {row.Hospital_Urgency_Tier_Simulated}</div>
         <div className="meta">
-          {usd(row.Cargo_Value_USD_Simulated)} ·{" "}
+          {row.Weather_Condition} · {usd(row.Cargo_Value_USD_Simulated)} ·{" "}
           {row.runway == null ? "powered container" : <span className={row.runway < 0 ? "red" : undefined}>runway {hours(row.runway)}</span>}
         </div>
         <div className="urgency">
           <span className="score">Urgency {index}</span>
           <span className="bar" aria-hidden="true"><i style={{ width: `${Math.max(share * 100, 2)}%` }} /></span>
         </div>
-        {weight && (
-          <div className="meta sum">
-            {pct(row.p_failure)} risk × {usd(row.Cargo_Value_USD_Simulated)} × {weight} urgency ÷ {buffer.toFixed(1)} h buffer
-          </div>
-        )}
         {logged && <div className="chips"><Chip tone="teal">Action logged</Chip></div>}
       </div>
       <div className="risk" style={{ color }}>
@@ -79,9 +68,8 @@ function Brief({ id }: { id: string }) {
         <button type="button" className="btn primary" onClick={() => go("respond", id, "Detect")}>Respond</button>
       </div>
       <Meter value={p} />
-      <p className="note" style={{ marginTop: 12 }}>{data.explanation.summary}</p>
       <KV style={{ marginTop: 16 }} items={[
-        { label: "Kind of trouble", value: data.failure_mode.mode, small: true },
+        { label: "Trouble", value: data.failure_mode.mode, small: true },
         { label: "Thermal runway", value: hours(runway), small: true, color: (runway ?? 0) < 0 ? "var(--red)" : undefined },
         { label: "Recommended", value: advice.head, small: true },
       ]} />
@@ -121,7 +109,7 @@ function Lead({ row }: { row: Data }) {
 }
 
 export default function MapView({ queue, coordinates }: { queue: Data; coordinates: Record<string, [number, number]> }) {
-  const { selected, select, line } = useStore();
+  const { selected, select } = useStore();
   const top: Data[] = queue.top;
   const stats = queue.stats;
   const critical = top.filter((row) => row.p_failure >= 0.8).length;
@@ -131,10 +119,7 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
     <>
       <header className="hero">
       <h1 className="title">Which shipment needs you first</h1>
-      <p className="subtitle">
-        The ten most urgent pharmaceutical shipments, ranked by risk, cargo value, hospital urgency and hours of thermal
-        buffer left. Pick one on the map or in the queue.
-      </p>
+      <p className="subtitle">The ten most urgent pharmaceutical shipments.</p>
       </header>
       {top.length === 0 ? (
         <Banner title="No alerts at this line">Lower the alert line in the sidebar to see more shipments.</Banner>
@@ -145,14 +130,13 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
           <div>
             <section className="panel">
               <h2 className="h2">Routes at risk</h2>
-              <p className="note">Squares mark shipments. Red is critical (80% and above), amber is high. Click a square to select it.</p>
+              <p className="note">Red is critical, amber is high.</p>
               <RouteMap rows={top} coordinates={coordinates} selected={selected} onSelect={select} />
               <KV style={{ marginTop: 8 }} items={[
-                { label: "Expected loss", value: usd(stats.expected_loss_top), sub: `top ${stats.shown}, if nothing is done` },
+                { label: "Expected loss", value: usd(stats.expected_loss_top), sub: `top ${stats.shown}` },
                 { label: "Buffer short", value: `${stats.buffer_short} of ${stats.shown}`, sub: "ends before arrival", color: stats.buffer_short ? "var(--red)" : undefined },
-                { label: "SLA breaches", value: `${stats.sla_breaches} of ${stats.shown}`, sub: "carrier payment on hold", color: stats.sla_breaches ? "var(--red)" : undefined },
+                { label: "SLA breaches", value: `${stats.sla_breaches} of ${stats.shown}`, sub: "payment on hold", color: stats.sla_breaches ? "var(--red)" : undefined },
               ]} />
-              <p className="fine">A disruption is assumed to cost {pct(queue.loss_share)} of cargo value.</p>
             </section>
             {selected && <div style={{ marginTop: 16 }}><Brief id={selected} /></div>}
           </div>
@@ -165,16 +149,7 @@ export default function MapView({ queue, coordinates }: { queue: Data; coordinat
               </div>
             </div>
             <p className="note" style={{ margin: "4px 0 12px" }}>
-              The {top.length} most urgent of {queue.count} flagged at the {pct(line)} line. Click a row to see it on the map.
-            </p>
-            {line < 0.7 && (
-              <p className="fine" style={{ margin: "-4px 0 12px" }}>
-                Lowering the line adds lower-risk shipments further down. These ten stay on top because they are far above it.
-              </p>
-            )}
-            <p className="fine" style={{ margin: "-4px 0 12px" }}>
-              The order follows the urgency score, not the risk % alone: risk × cargo value × hospital urgency ÷ buffer
-              hours left. The top shipment is 100. A higher risk % can rank lower when less money or more buffer is at stake.
+              Top {top.length} of {queue.count} flagged.
             </p>
             {top.map((row, i) => (
               <QueueRow key={row.Shipment_ID} row={row} rank={i + 1} on={row.Shipment_ID === selected}

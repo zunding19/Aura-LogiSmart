@@ -19,7 +19,7 @@ export default function Evidence() {
     { name: "Disruptions caught", count: caught, color: "var(--teal)" },
     { name: "False alarms", count: falseAlarms, color: "var(--red)" },
     { name: "Disruptions missed", count: missed, color: "var(--amber)" },
-    { name: "Correctly left alone", count: quiet, color: "#cfdcdb" },
+    { name: "Correctly left alone", count: quiet, color: "#ecd9c6" },
   ];
   const cells = groups.flatMap((group) => Array.from({ length: group.count }, () => group.color));
   const mix: Data[] = data.action_mix;
@@ -37,7 +37,7 @@ export default function Evidence() {
       <header className="hero">
       <h1 className="title">How LogiSmart decides, and how often it is right</h1>
       <p className="subtitle">
-        Every figure here comes from the trained model and 1,000 held-out shipments it never saw in training.
+        Measured on 1,000 held-out shipments.
       </p>
       </header>
       <div className="stage">
@@ -55,7 +55,7 @@ export default function Evidence() {
         <section className="panel">
           <h2 className="h2">1,000 test shipments at the {pct(line)} alert line</h2>
           <p className="note" style={{ marginBottom: 16 }}>
-            One square is one shipment the model never saw in training. Move the alert line in the sidebar to see the trade.
+            One square is one test shipment.
           </p>
           <div className="waffle" role="img"
             aria-label={`${caught} disruptions caught, ${falseAlarms} false alarms, ${missed} missed, ${quiet} correctly left alone`}>
@@ -76,7 +76,7 @@ export default function Evidence() {
           <section className="panel">
             <h2 className="h2">Fewer false alarms</h2>
             <p className="note" style={{ marginBottom: 16 }}>
-              Against flagging every shipment, which is what a cautious team does today.
+              Against flagging every shipment.
             </p>
             <div className="driver">
               <div className="top"><span>LogiSmart at {pct(line)}</span><span className="num">{falseAlarms}</span></div>
@@ -91,12 +91,12 @@ export default function Evidence() {
               { label: "Recall", value: pct(row.recall), sub: "of disruptions caught" },
               { label: "ROC AUC", value: Number(data.roc_auc).toFixed(2), sub: "ranking quality" },
             ]} />
-            <p className="fine">At the default 60% line recall is about 7 in 10: it averages 69% over 30 random splits.</p>
+            <p className="fine">Recall averages 69% over 30 random splits.</p>
           </section>
           <section className="panel">
             <h2 className="h2">A decision for every alert</h2>
             <p className="note" style={{ marginBottom: 16 }}>
-              Best action across the {mixTotal} test alerts at the 60% line. LogiSmart says keep monitoring when no action pays.
+              Best action across the {mixTotal} test alerts.
             </p>
             {mix.map((item) => (
               <div className="driver" key={item.name}>
@@ -110,7 +110,7 @@ export default function Evidence() {
         </div>
       </div>
       <p className="fine">
-        Assumptions: a disruption costs 10% of cargo value; action fees are example figures.
+        Simulated shipments. Fees are example figures.
       </p>
     </>
   );

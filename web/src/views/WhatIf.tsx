@@ -141,8 +141,7 @@ export default function WhatIf({ meta }: { meta: Data }) {
       <header className="hero">
       <h1 className="title">What if the order changes?</h1>
       <p className="subtitle">
-        Move a control and LogiSmart re-scores the order: risk, thermal runway, the action that pays and what each choice
-        leaves at stake.
+        Move a control and LogiSmart re-scores the order.
       </p>
       </header>
       <div className="cols" style={{ gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.5fr)" }}>
@@ -242,7 +241,7 @@ export default function WhatIf({ meta }: { meta: Data }) {
               <section className={clsx("panel", pending && "pending")}>
                 <h2 className="h2">What each choice leaves at stake</h2>
                 <p className="note">
-                  Each bar is the expected loss left after the action; the dark tip is its fee. Teal is the recommended action.
+                  Expected loss left after each action, plus its fee.
                 </p>
                 <CostChart options={result.actions.options} cargo={form.value} lossShare={meta.loss_share}
                   best={result.actions.recommended_action_id} />

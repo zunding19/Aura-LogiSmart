@@ -94,26 +94,19 @@ export default function App() {
           {data && (
             <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 8 }}>
               <NumberFlow className="mid" value={data.count} />
-              <span className="note">pharma shipments flagged</span>
+              <span className="note">flagged</span>
             </div>
           )}
           {row && (
             <p className="note">
-              <span className="num ink">{pct(row.precision)}</span> of alerts are real,{" "}
-              <span className="num ink">{pct(row.recall)}</span> of disruptions caught on 1,000 test shipments.
+              <span className="num ink">{pct(row.precision)}</span> real ·{" "}
+              <span className="num ink">{pct(row.recall)}</span> caught
             </p>
           )}
-          <p className="fine">Lower line: more caught, more false alarms.</p>
         </div>
       </aside>
 
       <main className="main" ref={main} tabIndex={-1}>
-        <div className="crumbs">
-          <b>LogiSmart</b>
-          <span className="sep">/</span>
-          <b>{VIEW_NAME[view]}</b>
-        </div>
-
         {queue.error && (
           <>
             <Banner tone="red" title="Cannot reach LogiSmart's server">{queue.error}</Banner>
@@ -131,7 +124,7 @@ export default function App() {
       <Toaster position="bottom-right" closeButton toastOptions={{
         style: {
           fontFamily: "var(--font)", background: "var(--surface)", color: "var(--text)",
-          border: "1px solid var(--line-strong)", boxShadow: "0 12px 32px -12px rgba(15, 42, 46, 0.28)",
+          border: "1px solid var(--line-strong)", boxShadow: "0 12px 32px -12px rgba(26, 20, 16, 0.28)",
         },
         actionButtonStyle: { background: "var(--teal)", color: "#fff", fontWeight: 600 },
       }} />

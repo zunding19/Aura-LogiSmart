@@ -116,17 +116,14 @@ def build_alerts(top):
         sid, p = row["Shipment_ID"], row["p_failure"]
         runway = None if pd.isna(row["runway"]) else row["runway"]
         sla = sla_for(sid, p, countdown_buffer(row))
-        tier = row["Hospital_Urgency_Tier_Simulated"]
-        body = (
-            f"{p:.0%} disruption risk on {money(row['Cargo_Value_USD_Simulated'])} of "
-            f"pharmaceuticals for {'an' if tier[:1] in 'AEIOU' else 'a'} {tier} order."
-        )
+        cargo = money(row["Cargo_Value_USD_Simulated"])
+        body = f"{p:.0%} risk on {cargo} of cargo."
         if sla and sla["breach_warning"]:
             kind, tone, head = "SLA breach", "red", "Carrier payment on hold"
-            body = sla["breach_notice"]["text"]
+            body = f"{p:.0%} risk, buffer under 3 h. Log a cooling fix to release payment."
         elif sla and sla["trigger_condition"]:
             kind, tone, head = "Resolved", "teal", "Fix logged. Carrier payment released."
-            body = "A cooling fix that restores at least 3 hours of buffer has been logged."
+            body = "Cooling fix logged."
         elif runway is not None and runway < 0:
             kind, tone = "Buffer short", "red"
             head = f"Thermal buffer ends {-runway:.1f} h before arrival"
