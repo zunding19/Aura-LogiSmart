@@ -26,8 +26,7 @@ function Detect({ data }: { data: Data }) {
     <>
       <h2 className="h2">{QUESTION.Detect}</h2>
       <p className="note">
-        LogiSmart scores this shipment at <b className="ink">{pct(risk.p_failure)}</b>. The alert line is {pct(line)}, so it is{" "}
-        {flagged ? "flagged" : "not flagged"}.
+        <b className="ink">{pct(risk.p_failure)}</b> risk against a {pct(line)} alert line: {flagged ? "flagged" : "not flagged"}.
         {risk.model_variant !== "primary" && " The backup model was used because weather is missing."}
       </p>
       <div className="eyebrow" style={{ marginTop: 24 }}>What LogiSmart looked at</div>
@@ -40,9 +39,8 @@ function Detect({ data }: { data: Data }) {
       ]} />
       <div className="eyebrow" style={{ marginTop: 24 }}>Can you trust the alert?</div>
       <p className="note" style={{ marginTop: 8 }}>
-        On {Number(scorecard.tested_on_shipments).toLocaleString("en-US")} held-out test shipments at the {pct(line)} line,{" "}
-        {pct(data.line.precision)} of alerts were real disruptions and LogiSmart caught about{" "}
-        {Math.round(data.line.recall * 10)} in 10 of them.
+        On {Number(scorecard.tested_on_shipments).toLocaleString("en-US")} test shipments, {pct(data.line.precision)} of alerts were real and
+        about {Math.round(data.line.recall * 10)} in 10 disruptions were caught.
       </p>
     </>
   );
@@ -60,12 +58,6 @@ function Categorize({ data }: { data: Data }) {
       </div>
       <div className="eyebrow" style={{ margin: "24px 0 12px" }}>Warning signs</div>
       {signs.length === 0 && <p className="note">No warning sign is above its warning level.</p>}
-      {signs.length > 1 && (
-        <p className="note" style={{ marginBottom: 12 }}>
-          {signs.length} warning signs are present, so the category is combined. The Explain step shows how much each one
-          moves the risk.
-        </p>
-      )}
       {signs.map((sign) => (
         <div className="driver" key={sign.feature}>
           <div className="top">
@@ -112,16 +104,11 @@ function Prioritize({ data, id }: { data: Data; id: string }) {
       <div className="mid" style={{ marginTop: 12 }}>
         {data.rank ? `Rank ${data.rank} of ${data.queue_size}` : "Not in the queue"}
       </div>
-      <p className="note" style={{ marginTop: 8 }}>
-        {data.rank
-          ? "A shipment moves up the queue when its risk is higher, its cargo is worth more, the hospital needs it sooner or its buffer is shorter."
-          : data.rank_note}
-      </p>
+      {!data.rank && <p className="note" style={{ marginTop: 8 }}>{data.rank_note}</p>}
       <div className="eyebrow" style={{ marginTop: 24 }}>Why it ranks here</div>
       <KV style={{ marginTop: 8 }} items={reasons} />
       <p className="note" style={{ marginTop: 16 }}>
-        Expected loss if nothing is done: <b className="ink">{usd(priority.expected_loss_usd)}</b>. A disruption is assumed to
-        cost {pct(data.loss_share)} of cargo value.
+        Expected loss if nothing is done: <b className="ink">{usd(priority.expected_loss_usd)}</b>.
       </p>
       {rows.length > 0 && (
         <>
@@ -147,7 +134,6 @@ function Prioritize({ data, id }: { data: Data; id: string }) {
               ))}
             </tbody>
           </table>
-          <p className="fine">Buffer is hours of cooling left. In a powered container it is how long the cargo holds if the power fails.</p>
         </>
       )}
     </>
@@ -194,8 +180,7 @@ function Decide({ data, id, tried }: { data: Data; id: string; tried: string | u
       <h2 className="h2">{QUESTION.Decide}</h2>
       <Banner tone="teal" title={`Recommended: ${advice.head}`} style={{ margin: "12px 0 16px" }}>{advice.text}</Banner>
       <p className="note" style={{ marginBottom: 12 }}>
-        Actions are ranked: what pays most first, then what protects the batch. Try one to see its result on the right.
-        Nothing is sent to anyone until you commit.
+        Try an action to see its result. Nothing is sent until you commit.
       </p>
       <table className="matrix">
         <thead>
@@ -253,8 +238,7 @@ function Decide({ data, id, tried }: { data: Data; id: string; tried: string | u
         </tbody>
       </table>
       <p className="fine">
-        A disruption is assumed to cost {pct(data.loss_share)} of cargo value. Fees are example figures. Savings are the
-        model's estimate, not a guarantee.
+        Fees and savings are estimates.
       </p>
     </>
   );
@@ -381,7 +365,7 @@ function Rail({ data, id, tried }: { data: Data; id: string; tried: string | und
         <>
           <div className="eyebrow" style={{ marginTop: 16 }}>Thermal runway</div>
           <ThermalChart buffer={thermal.buffer_hours} toGo={thermal.hours_to_go} after={after} />
-          <p className="fine">Thermal runway is buffer hours minus hours still to go. It counts hours, not temperature.</p>
+          <p className="fine">Buffer hours minus hours still to go.</p>
         </>
       ) : (
         thermal.note && <p className="fine">{thermal.note}</p>

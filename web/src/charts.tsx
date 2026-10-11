@@ -4,13 +4,13 @@ import {
 } from "recharts";
 import { usd, type Data } from "./lib";
 
-const INK = "#0f2a2e";
-const SOFT = "#3f5a5e";
-const MUTED = "#4f676b";
-const GRID = "#dce7e6";
-const RED = "#d92d20";
-const TEAL = "#0e7c73";
-const QUIET = "#a9bcbb";
+const INK = "#1a1410";
+const SOFT = "#54463b";
+const MUTED = "#6b5a4d";
+const GRID = "#f1dcc8";
+const RED = "#d0112b";
+const TEAL = "#1a1410";
+const QUIET = "#c4ad98";
 const TICK = { fontFamily: "Geist Mono Variable, monospace", fontSize: 13, fill: MUTED };
 const LABEL = { fontFamily: "Geist Mono Variable, monospace", fontSize: 13 };
 
@@ -82,7 +82,7 @@ export function CostChart({ options, cargo, lossShare, best }: { options: Data[]
         <XAxis type="number" tick={TICK} stroke={GRID} tickFormatter={(v: number) => (v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${v}`)}
           label={{ value: "Expected loss plus fee (USD)", position: "insideBottom", offset: -12, fill: MUTED, fontSize: 13 }} />
         <YAxis type="category" dataKey="name" width={232} tick={{ fontSize: 13, fill: SOFT }} stroke={GRID} />
-        <Tooltip cursor={{ fill: "#eaf3f2" }} formatter={(value) => usd(Number(value))}
+        <Tooltip cursor={{ fill: "#fde8d4" }} formatter={(value) => usd(Number(value))}
           contentStyle={{ borderRadius: 8, border: `1px solid ${GRID}`, fontSize: 13 }} />
         <Bar dataKey="loss" name="Expected loss" stackId="cost" isAnimationActive={false}>
           {rows.map((row) => <Cell key={row.name} fill={row.id === best ? TEAL : QUIET} />)}
