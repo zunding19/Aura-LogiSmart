@@ -6,6 +6,10 @@
 
 **Live demo:** https://dormathon-2026-nine.vercel.app
 
+LogiSmart warns a logistics coordinator that a pharmaceutical shipment is likely to be disrupted, and shows which action is worth paying for, while the shipment is still moving.
+
+![LogiSmart command map: the triage queue with the most urgent shipment on top](docs/screenshot.png)
+
 ---
 
 ## The problem
@@ -116,3 +120,5 @@ tests/                 77 tests covering the model, the order flow, the SLA and 
 ## Technology
 
 Python 3.13, pandas, NumPy and scikit-learn (logistic regression) behind a Starlette API; React 19 with Vite, Recharts, Sonner, NumberFlow, zustand and d3-geo for the interface. Streamlit and Plotly power the fallback app.
+
+**How AI is used:** a machine-learning model (logistic regression, trained in notebook 05) predicts the disruption risk of each shipment from weather, route risk, carrier reliability, lead time, distance and transport mode. The same model re-scores the shipment for every action, which is how the app shows the risk before and after. The app was built with Claude Code as a coding assistant.

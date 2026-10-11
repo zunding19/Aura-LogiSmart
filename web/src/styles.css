@@ -277,8 +277,10 @@ details.banner summary:focus-visible { outline: 2px solid var(--teal); outline-o
   .brand { padding: 0 8px 0 0; }
   .navgroup { flex-direction: row; flex-wrap: wrap; align-items: center; }
   .nav { width: auto; gap: 8px; }
-  .main { padding: 16px; }
+  .main { padding: 16px; min-width: 0; }
   .cols { grid-template-columns: 1fr !important; }
+  .cols > * { min-width: 0; }
+  .matrix { display: block; overflow-x: auto; }
   .rail { position: static; max-height: none; }
   .stage { grid-template-columns: 1fr; }
   .stage > div { border-left: 0; border-top: 1px solid var(--line); }
