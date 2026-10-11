@@ -1,0 +1,267 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e5]: LogiSmart
+      - navigation "Screens" [ref=e8]:
+        - generic [ref=e9]: Operations
+        - button "Command map" [ref=e10] [cursor=pointer]
+        - button "Alerts inbox 10" [ref=e29] [cursor=pointer]:
+          - text: Alerts inbox
+          - generic [ref=e30]: "10"
+        - button "Guided response" [ref=e12] [cursor=pointer]
+        - button "What-if simulator" [ref=e13] [cursor=pointer]
+        - generic [ref=e14]: Proof
+        - button "Evidence" [ref=e15] [cursor=pointer]
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - generic [ref=e19]: Alert line
+            - status [ref=e20]: 60%
+          - slider "Alert line" [ref=e21]: "3"
+        - generic [ref=e31]:
+          - generic [ref=e35]:
+            - generic [ref=e36]: "2"
+            - generic [ref=e38]: "1"
+            - generic [ref=e40]: "8"
+          - generic [ref=e42]: pharma shipments flagged
+        - paragraph [ref=e43]: 85% of alerts are real, 70% of disruptions caught on 1,000 test shipments.
+        - paragraph [ref=e22]: "Lower line: more caught, more false alarms."
+    - main [active] [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e25]: LogiSmart
+        - generic [ref=e26]: /
+        - generic [ref=e27]: Command map
+        - generic [ref=e44]: 218 pharma alerts at the 60% line
+        - generic [ref=e45]: /
+        - generic [ref=e46]: 77 false alarms per 1,000 tested
+      - generic [ref=e763]:
+        - heading "Which shipment needs you first" [level=1] [ref=e764]
+        - paragraph [ref=e765]: The ten most urgent pharmaceutical shipments, ranked by risk, cargo value, hospital urgency and hours of thermal buffer left. Pick one on the map or in the queue.
+      - region "Most urgent shipment" [ref=e766]:
+        - generic [ref=e767]:
+          - generic [ref=e768]: Most urgent now
+          - generic [ref=e770]:
+            - text: SC-12132 runs out of thermal buffer
+            - emphasis [ref=e771]: 7.4 hours before it lands
+          - generic [ref=e772]: Dubai to Shanghai by air · Hurricane · Critical Emergency · 99% disruption risk
+        - generic [ref=e773]:
+          - generic [ref=e774]: Cargo at stake
+          - generic [ref=e775]:
+            - generic [ref=e776]: $
+            - generic [ref=e780]:
+              - generic [ref=e781]: "3"
+              - generic [ref=e784]:
+                - generic [ref=e785]: .
+                - generic [ref=e787]: "0"
+            - generic [ref=e789]: M
+        - button "Respond now" [ref=e792] [cursor=pointer]
+      - generic [ref=e793]:
+        - generic [ref=e794]:
+          - generic [ref=e795]:
+            - heading "Routes at risk" [level=2] [ref=e796]
+            - paragraph [ref=e797]: Squares mark shipments. Red is critical (80% and above), amber is high. Click a square to select it.
+            - group "Map of the ten most urgent shipment routes" [ref=e798]:
+              - generic [ref=e821]: Dubai
+              - generic [ref=e824]: Shanghai
+              - generic [ref=e827]: Singapore
+              - generic [ref=e830]: Hamburg
+              - generic [ref=e833]: Antwerp
+              - generic [ref=e836]: Rotterdam
+              - generic [ref=e839]: Busan
+              - button "SC-14451, Dubai to Singapore, 99% risk" [ref=e842] [cursor=pointer]
+              - button "SC-10206, Shanghai to Hamburg, 100% risk" [ref=e845] [cursor=pointer]
+              - button "SC-12668, Dubai to Antwerp, 83% risk" [ref=e848] [cursor=pointer]
+              - button "SC-12285, Hamburg to Rotterdam, 99% risk" [ref=e851] [cursor=pointer]
+              - button "SC-14342, Dubai to Antwerp, 100% risk" [ref=e854] [cursor=pointer]
+              - button "SC-13411, Antwerp to Shanghai, 77% risk" [ref=e857] [cursor=pointer]
+              - button "SC-13003, Singapore to Busan, 99% risk" [ref=e860] [cursor=pointer]
+              - button "SC-14123, Busan to Hamburg, 70% risk" [ref=e863] [cursor=pointer]
+              - button "SC-13740, Hamburg to Busan, 99% risk" [ref=e866] [cursor=pointer]
+              - button "SC-12132, Dubai to Shanghai, 99% risk" [pressed] [ref=e869] [cursor=pointer]
+            - paragraph [ref=e872]: SC-12132 · Dubai to Shanghai by air · 99% risk · $3.0M
+            - generic [ref=e873]:
+              - generic [ref=e874]:
+                - generic [ref=e875]: Expected loss
+                - generic [ref=e876]: $1.7M
+                - generic [ref=e877]: top 10, if nothing is done
+              - generic [ref=e878]:
+                - generic [ref=e879]: Buffer short
+                - generic [ref=e880]: 3 of 10
+                - generic [ref=e881]: ends before arrival
+              - generic [ref=e882]:
+                - generic [ref=e883]: SLA breaches
+                - generic [ref=e884]: 2 of 10
+                - generic [ref=e885]: carrier payment on hold
+            - paragraph [ref=e886]: A disruption is assumed to cost 10% of cargo value.
+          - region "Selected shipment" [ref=e888]:
+            - generic [ref=e889]:
+              - generic [ref=e890]:
+                - generic [ref=e891]: Selected on the map
+                - generic [ref=e892]:
+                  - generic [ref=e893]: SC-12132
+                  - generic [ref=e894]: 99%
+                  - generic [ref=e895]: Dubai to Shanghai by air
+              - button "Respond" [ref=e896] [cursor=pointer]
+            - img "Disruption risk 99 percent" [ref=e897]
+            - generic [ref=e901]:
+              - generic [ref=e902]: 0%
+              - generic [ref=e903]: Alert line 60%
+              - generic [ref=e904]: 100%
+            - paragraph [ref=e905]: "99% disruption risk. Main reason: Hurricane on the route. In clear weather the risk would be 46% instead of 99%."
+            - generic [ref=e906]:
+              - generic [ref=e907]:
+                - generic [ref=e908]: Kind of trouble
+                - generic [ref=e909]: Delay leading to cold-chain excursion
+              - generic [ref=e910]:
+                - generic [ref=e911]: Thermal runway
+                - generic [ref=e912]: 7.4 h short
+              - generic [ref=e913]:
+                - generic [ref=e914]: Recommended
+                - generic [ref=e915]: Move to next available direct flight, then Hub refrigerant refresh (re-icing)
+        - generic [ref=e916]:
+          - generic [ref=e917]:
+            - heading "Triage queue" [level=2] [ref=e918]
+            - generic [ref=e919]:
+              - generic [ref=e920]: 8 critical
+              - generic [ref=e922]: 2 high
+          - paragraph [ref=e924]: The 10 most urgent of 218 flagged at the 60% line. Click a row to see it on the map.
+          - paragraph [ref=e925]: Lowering the line adds lower-risk shipments further down. These ten stay on top because they are far above it.
+          - paragraph [ref=e926]: "The order follows the urgency score, not the risk % alone: risk × cargo value × hospital urgency ÷ buffer hours left. The top shipment is 100. A higher risk % can rank lower when less money or more buffer is at stake."
+          - generic [ref=e927] [cursor=pointer]:
+            - generic [ref=e928]: "01"
+            - generic [ref=e929]:
+              - generic [ref=e930]: SC-12132
+              - generic [ref=e931]: Dubai to Shanghai by air
+              - generic [ref=e932]: Hurricane · Critical Emergency
+              - generic [ref=e933]:
+                - text: $3.0M ·
+                - generic [ref=e934]: runway 7.4 h short
+              - generic [ref=e935]: Urgency 100
+              - generic [ref=e939]: 99% risk × $3.0M × 2.5 urgency ÷ 0.5 h buffer
+            - generic [ref=e940]:
+              - text: 99%
+              - generic [ref=e941]: Critical risk
+            - button "Respond to SC-12132" [ref=e954]: Respond
+          - generic [ref=e955] [cursor=pointer]:
+            - generic [ref=e956]: "02"
+            - generic [ref=e957]:
+              - generic [ref=e958]: SC-14451
+              - generic [ref=e959]: Dubai to Singapore by air
+              - generic [ref=e960]: Hurricane · Critical Emergency
+              - generic [ref=e961]:
+                - text: $1.5M ·
+                - generic [ref=e962]: runway 9.5 h short
+              - generic [ref=e963]: Urgency 50
+              - generic [ref=e967]: 99% risk × $1.5M × 2.5 urgency ÷ 0.5 h buffer
+            - generic [ref=e968]:
+              - text: 99%
+              - generic [ref=e969]: Critical risk
+            - button "Respond to SC-14451" [ref=e982]: Respond
+          - generic [ref=e983] [cursor=pointer]:
+            - generic [ref=e984]: "03"
+            - generic [ref=e985]:
+              - generic [ref=e986]: SC-10206
+              - generic [ref=e987]: Shanghai to Hamburg by road
+              - generic [ref=e988]: Hurricane · Elevated Procedure
+              - generic [ref=e989]: $1.4M · powered container
+              - generic [ref=e990]: Urgency 13
+              - generic [ref=e994]: 100% risk × $1.4M × 1.5 urgency ÷ 1.1 h buffer
+            - generic [ref=e995]:
+              - text: 100%
+              - generic [ref=e996]: Critical risk
+            - button "Respond to SC-10206" [ref=e1009]: Respond
+          - generic [ref=e1010] [cursor=pointer]:
+            - generic [ref=e1011]: "04"
+            - generic [ref=e1012]:
+              - generic [ref=e1013]: SC-12668
+              - generic [ref=e1014]: Dubai to Antwerp by road
+              - generic [ref=e1015]: Storm · Elevated Procedure
+              - generic [ref=e1016]: $1.8M · powered container
+              - generic [ref=e1017]: Urgency 10
+              - generic [ref=e1021]: 83% risk × $1.8M × 1.5 urgency ÷ 1.5 h buffer
+            - generic [ref=e1022]:
+              - text: 83%
+              - generic [ref=e1023]: Critical risk
+            - button "Respond to SC-12668" [ref=e1036]: Respond
+          - generic [ref=e1037] [cursor=pointer]:
+            - generic [ref=e1038]: "05"
+            - generic [ref=e1039]:
+              - generic [ref=e1040]: SC-12285
+              - generic [ref=e1041]: Hamburg to Rotterdam by road
+              - generic [ref=e1042]: Hurricane · Critical Emergency
+              - generic [ref=e1043]: $996,648 · powered container
+              - generic [ref=e1044]: Urgency 8.3
+              - generic [ref=e1048]: 99% risk × $996,648 × 2.5 urgency ÷ 2.0 h buffer
+            - generic [ref=e1049]:
+              - text: 99%
+              - generic [ref=e1050]: Critical risk
+            - button "Respond to SC-12285" [ref=e1063]: Respond
+          - generic [ref=e1064] [cursor=pointer]:
+            - generic [ref=e1065]: "06"
+            - generic [ref=e1066]:
+              - generic [ref=e1067]: SC-14342
+              - generic [ref=e1068]: Dubai to Antwerp by road
+              - generic [ref=e1069]: Hurricane · Elevated Procedure
+              - generic [ref=e1070]: $1.2M · powered container
+              - generic [ref=e1071]: Urgency 8.3
+              - generic [ref=e1075]: 100% risk × $1.2M × 1.5 urgency ÷ 1.4 h buffer
+            - generic [ref=e1076]:
+              - text: 100%
+              - generic [ref=e1077]: Critical risk
+            - button "Respond to SC-14342" [ref=e1090]: Respond
+          - generic [ref=e1091] [cursor=pointer]:
+            - generic [ref=e1092]: "07"
+            - generic [ref=e1093]:
+              - generic [ref=e1094]: SC-13411
+              - generic [ref=e1095]: Antwerp to Shanghai by road
+              - generic [ref=e1096]: Fog · Routine Restock
+              - generic [ref=e1097]: $2.1M · powered container
+              - generic [ref=e1098]: Urgency 8.2
+              - generic [ref=e1102]: 77% risk × $2.1M × 1 urgency ÷ 1.3 h buffer
+            - generic [ref=e1103]:
+              - text: 77%
+              - generic [ref=e1104]: High risk
+            - button "Respond to SC-13411" [ref=e1117]: Respond
+          - generic [ref=e1118] [cursor=pointer]:
+            - generic [ref=e1119]: "08"
+            - generic [ref=e1120]:
+              - generic [ref=e1121]: SC-13003
+              - generic [ref=e1122]: Singapore to Busan by air
+              - generic [ref=e1123]: Hurricane · Routine Restock
+              - generic [ref=e1124]:
+                - text: $4.4M ·
+                - generic [ref=e1125]: runway 38.6 h short
+              - generic [ref=e1126]: Urgency 8.1
+              - generic [ref=e1130]: 99% risk × $4.4M × 1 urgency ÷ 3.6 h buffer
+            - generic [ref=e1131]:
+              - text: 99%
+              - generic [ref=e1132]: Critical risk
+            - button "Respond to SC-13003" [ref=e1145]: Respond
+          - generic [ref=e1146] [cursor=pointer]:
+            - generic [ref=e1147]: "09"
+            - generic [ref=e1148]:
+              - generic [ref=e1149]: SC-14123
+              - generic [ref=e1150]: Busan to Hamburg by road
+              - generic [ref=e1151]: Fog · Elevated Procedure
+              - generic [ref=e1152]: $1.2M · powered container
+              - generic [ref=e1153]: Urgency 7.9
+              - generic [ref=e1157]: 70% risk × $1.2M × 1.5 urgency ÷ 1.1 h buffer
+            - generic [ref=e1158]:
+              - text: 70%
+              - generic [ref=e1159]: High risk
+            - button "Respond to SC-14123" [ref=e1172]: Respond
+          - generic [ref=e1173] [cursor=pointer]:
+            - generic [ref=e1174]: "10"
+            - generic [ref=e1175]:
+              - generic [ref=e1176]: SC-13740
+              - generic [ref=e1177]: Hamburg to Busan by road
+              - generic [ref=e1178]: Hurricane · Elevated Procedure
+              - generic [ref=e1179]: $765,273 · powered container
+              - generic [ref=e1180]: Urgency 7.6
+              - generic [ref=e1184]: 99% risk × $765,273 × 1.5 urgency ÷ 1.0 h buffer
+            - generic [ref=e1185]:
+              - text: 99%
+              - generic [ref=e1186]: Critical risk
+            - button "Respond to SC-13740" [ref=e1199]: Respond
+    - region "Notifications alt+T"
+  - generic [aria-hidden] [ref=e762]: Move to next available direct flight
